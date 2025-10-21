@@ -123,6 +123,8 @@ document.addEventListener('DOMContentLoaded', () => {
             session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
             session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
 
+            session.fullDate = `${session.date}/${currentDate.getFullYear()}`;
+
             lastSessionDate = new Date(currentDate); 
 
             let nextDate = new Date(currentDate);
@@ -413,6 +415,56 @@ document.addEventListener('DOMContentLoaded', () => {
             removeButtons.forEach(btn => btn.style.visibility = 'visible');
             loadingMessage.classList.add('hidden');
         }
+    });
+
+    const downloadCsvBtn = document.getElementById('download-csv-btn');
+
+    downloadCsvBtn.addEventListener('click', () => {
+        if (selectedDays.length === 0 || !startDateInput.value) {
+            alert('Por favor, gere um cronograma antes de exportar para Excel.');
+            return;
+        }
+
+        let dataToExport = trainingData.filter((_, i) => !removedSessions.includes(i));
+        
+        calculateScheduleDates(dataToExport, selectedDays, startTimeInput.value, startDateInput.value);
+
+        const headers = ['Data Completa', 'Dia da Semana', 'Mês Referência', 'Módulo', 'Descrição'];
+        let csvContent = headers.join(';') + '\n';
+
+        const sanitize = (str) => {
+            if (str === null || str === undefined) str = '';
+            let s = str.toString();
+            if (s.includes(';') || s.includes('\n') || s.includes('"')) {
+                s = s.replace(/"/g, '""'); 
+                s = `"${s}"`; 
+            }
+            return s;
+        };
+
+        dataToExport.forEach(session => {
+            const row = [
+                session.fullDate, 
+                session.day,
+                session.month,
+                session.module,
+                session.description
+            ];
+            csvContent += row.map(sanitize).join(';') + '\n';
+        });
+
+
+        const bom = '\uFEFF';
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'cronograma.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     });
 
     function showPopup() {
