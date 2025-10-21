@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { module: 'Configurações de E-mails', description: 'Configuração de caixas postais e templates de e-mail.', status: 'pending' },
         { module: 'Frota e Mobile I (Cadastros)', description: 'Cadastro de Veículos / Disp. Móveis, Usuários do App e Vinculação de Placa + Motorista.', status: 'pending' },
         { module: 'Comercial I (CRM)', description: 'Cadastro de Prospect e Módulo CRM Comercial.', status: 'pending' },
-        { module: 'Parametrização Fiscal II', description: 'Parametrização MTR, CDF, CT-e.', status: 'pending' },
+        { module: 'ParametrizaÇÃO Fiscal II', description: 'Parametrização MTR, CDF, CT-e.', status: 'pending' },
         { module: 'Comercial II (Propostas)', description: 'Proposta de Venda / Requisição de Venda (Fluxo completo).', status: 'pending' },
         { module: 'Administrativo II - Mala Direta', description: 'Configuração e uso do módulo Mala Direta.', status: 'pending' },
         { module: 'Gestão de OS (Logística)', description: 'Logística e gerenciamento de Ordem de Serviço (O.S.).', status: 'pending' },
@@ -54,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const startDateInput = document.getElementById('start-date');
     const startTimeInput = document.getElementById('start-time');
     const selectionAlert = document.getElementById('selection-alert');
+    const downloadPdfBtn = document.getElementById('download-pdf-btn');
+    const loadingMessage = document.getElementById('loading-message');
+    const pdfContent = document.getElementById('pdf-content');
 
 
     function initializeConfigControls() {
@@ -88,124 +91,124 @@ document.addEventListener('DOMContentLoaded', () => {
         startDateInput.addEventListener('change', () => {
             localStorage.setItem('startDate', startDateInput.value);
         });
-}
+    }
 
-    initializeConfigControls();
+    initializeConfigControls(); 
 
     function calculateScheduleDates(data, daysToUse, timeToUse, dateStart) {
-    if (daysToUse.length === 0 || !dateStart) {
-        document.getElementById('summary-start-date').textContent = '-';
-        document.getElementById('date-final').textContent = '-';
-        document.getElementById('summary-duration').textContent = '-';
-        return;
-    }
+        if (daysToUse.length === 0 || !dateStart) {
+            document.getElementById('summary-start-date').textContent = '-';
+            document.getElementById('date-final').textContent = '-';
+            document.getElementById('summary-duration').textContent = '-';
+            return;
+        }
 
-    const [hour, minute] = timeToUse.split(':').map(Number);
-    const [startYear, startMonth, startDay] = dateStart.split('-').map(Number);
-    let currentDate = new Date(startYear, startMonth - 1, startDay, hour, minute);
+        const [hour, minute] = timeToUse.split(':').map(Number);
+        const [startYear, startMonth, startDay] = dateStart.split('-').map(Number);
+        let currentDate = new Date(startYear, startMonth - 1, startDay, hour, minute);
 
-    while (!daysToUse.includes(currentDate.getDay())) {
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
+        while (!daysToUse.includes(currentDate.getDay())) {
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
 
-    const actualFirstDate = new Date(currentDate);
-    
-    const startFormatted = `${String(actualFirstDate.getDate()).padStart(2, '0')}/${String(actualFirstDate.getMonth() + 1).padStart(2, '0')}/${actualFirstDate.getFullYear()}`;
-    document.getElementById('summary-start-date').textContent = startFormatted;
-
-    let lastSessionDate;
-
-    data.forEach(session => {
-        session.date = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
-        session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
-        session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
-
-        lastSessionDate = new Date(currentDate); 
-
-        let nextDate = new Date(currentDate);
-        do {
-            nextDate.setDate(nextDate.getDate() + 1);
-        } while (!daysToUse.includes(nextDate.getDay()));
-
-        currentDate = nextDate;
-    });
-
-    if (data.length > 0 && lastSessionDate) {
-        const finalFormatted = `${String(lastSessionDate.getDate()).padStart(2, '0')}/${String(lastSessionDate.getMonth() + 1).padStart(2, '0')}/${lastSessionDate.getFullYear()}`;
-        document.getElementById('date-final').textContent = finalFormatted;
-
-        let startMonthIndex = actualFirstDate.getFullYear() * 12 + actualFirstDate.getMonth();
-        let endMonthIndex = lastSessionDate.getFullYear() * 12 + lastSessionDate.getMonth();
+        const actualFirstDate = new Date(currentDate);
         
-        let inclusiveMonthSpan = (endMonthIndex - startMonthIndex) + 1;
+        const startFormatted = `${String(actualFirstDate.getDate()).padStart(2, '0')}/${String(actualFirstDate.getMonth() + 1).padStart(2, '0')}/${actualFirstDate.getFullYear()}`;
+        document.getElementById('summary-start-date').textContent = startFormatted;
 
-        document.getElementById('summary-duration').textContent = `~${inclusiveMonthSpan} ${inclusiveMonthSpan > 1 ? 'Meses' : 'Mês'}`;
-    
-    } else {
-         document.getElementById('date-final').textContent = '-';
-         document.getElementById('summary-duration').textContent = '-';
-    }
-}
+        let lastSessionDate;
 
-    function renderTimeline() {
-    const totalSessionsEl = document.getElementById('summary-total-sessions');
+        data.forEach(session => {
+            session.date = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+            session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
+            session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
 
-    if (selectedDays.length === 0 || !startDateInput.value) {
-        selectionAlert.style.display = 'block';
-        timelineContainer.innerHTML = '';
-        if (chartInstance) chartInstance.destroy();
-        
-        if(totalSessionsEl) totalSessionsEl.textContent = '0'; 
+            lastSessionDate = new Date(currentDate); 
 
-        return;
-    }
+            let nextDate = new Date(currentDate);
+            do {
+                nextDate.setDate(nextDate.getDate() + 1);
+            } while (!daysToUse.includes(nextDate.getDay()));
 
-    selectionAlert.style.display = 'none';
-    timelineContainer.innerHTML = '';
-
-    let dataToRender = trainingData.filter((_, i) => !removedSessions.includes(i));
-    
-    if(totalSessionsEl) totalSessionsEl.textContent = dataToRender.length;
-
-    calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
-
-    const months = [...new Set(dataToRender.map(item => item.month))];
-    months.forEach(month => {
-        const monthSection = document.createElement('div');
-        monthSection.id = month.replace(/\\s/g, '-').replace('/', '-');
-        monthSection.className = 'month-section';
-
-        const monthHeader = document.createElement('h3');
-        monthHeader.className = 'text-xl font-bold text-teal-700 border-b-2 border-teal-200 pb-2 mb-4';
-        monthHeader.textContent = month;
-        monthSection.appendChild(monthHeader);
-
-        const sessionsGrid = document.createElement('div');
-        sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
-
-        const sessionsForMonth = dataToRender.filter(session => session.month === month);
-        sessionsForMonth.forEach(session => {
-            const globalIndex = trainingData.indexOf(session);
-            const isCompleted = session.status === 'completed';
-
-            const sessionCard = document.createElement('div');
-            sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
-            sessionCard.dataset.index = globalIndex;
-
-            sessionCard.innerHTML = `
-                <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
-                <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
-                <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'}\">${session.module}</p>
-                <div class=\"text-sm text-gray-600 mt-2\">${session.description}</div>
-            `;
-
-            sessionsGrid.appendChild(sessionCard);
+            currentDate = nextDate;
         });
 
-        monthSection.appendChild(sessionsGrid);
-        timelineContainer.appendChild(monthSection);
-    });
-}
+        if (data.length > 0 && lastSessionDate) {
+            const finalFormatted = `${String(lastSessionDate.getDate()).padStart(2, '0')}/${String(lastSessionDate.getMonth() + 1).padStart(2, '0')}/${lastSessionDate.getFullYear()}`;
+            document.getElementById('date-final').textContent = finalFormatted;
+
+            let startMonthIndex = actualFirstDate.getFullYear() * 12 + actualFirstDate.getMonth();
+            let endMonthIndex = lastSessionDate.getFullYear() * 12 + lastSessionDate.getMonth();
+            
+            let inclusiveMonthSpan = (endMonthIndex - startMonthIndex) + 1;
+
+            document.getElementById('summary-duration').textContent = `~${inclusiveMonthSpan} ${inclusiveMonthSpan > 1 ? 'Meses' : 'Mês'}`;
+        
+        } else {
+            document.getElementById('date-final').textContent = '-';
+            document.getElementById('summary-duration').textContent = '-';
+        }
+    }
+
+    function renderTimeline() {
+        const totalSessionsEl = document.getElementById('summary-total-sessions');
+
+        if (selectedDays.length === 0 || !startDateInput.value) {
+            selectionAlert.style.display = 'block';
+            timelineContainer.innerHTML = '';
+            if (chartInstance) chartInstance.destroy();
+            
+            if(totalSessionsEl) totalSessionsEl.textContent = '0'; 
+
+            return;
+        }
+
+        selectionAlert.style.display = 'none';
+        timelineContainer.innerHTML = '';
+
+        let dataToRender = trainingData.filter((_, i) => !removedSessions.includes(i));
+        
+        if(totalSessionsEl) totalSessionsEl.textContent = dataToRender.length;
+
+        calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
+
+        const months = [...new Set(dataToRender.map(item => item.month))];
+        months.forEach(month => {
+            const monthSection = document.createElement('div');
+            monthSection.id = month.replace(/\\s/g, '-').replace('/', '-');
+            monthSection.className = 'month-section';
+
+            const monthHeader = document.createElement('h3');
+            monthHeader.className = 'text-xl font-bold text-teal-700 border-b-2 border-teal-200 pb-2 mb-4';
+            monthHeader.textContent = month;
+            monthSection.appendChild(monthHeader);
+
+            const sessionsGrid = document.createElement('div');
+            sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
+
+            const sessionsForMonth = dataToRender.filter(session => session.month === month);
+            sessionsForMonth.forEach(session => {
+                const globalIndex = trainingData.indexOf(session);
+                const isCompleted = session.status === 'completed';
+
+                const sessionCard = document.createElement('div');
+                sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
+                sessionCard.dataset.index = globalIndex;
+
+                sessionCard.innerHTML = `
+                    <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
+                    <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
+                    <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'}\">${session.module}</p>
+                    <div class=\"text-sm text-gray-600 mt-2\">${session.description}</div>
+                `;
+
+                sessionsGrid.appendChild(sessionCard);
+            });
+
+            monthSection.appendChild(sessionsGrid);
+            timelineContainer.appendChild(monthSection);
+        });
+    }
 
     timelineContainer.addEventListener('click', e => {
         if (e.target.classList.contains('remove-session-btn')) {
@@ -217,28 +220,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    function showPopup() {
-    const popup = document.createElement('div');
-    popup.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50';
-    popup.innerHTML = `
-        <div class="bg-white rounded-lg shadow-xl p-6 text-center max-w-sm w-full">
-            <h2 class="text-lg font-semibold text-teal-700 mb-2">Cronograma Gerado!</h2>
-            <p class="text-gray-600">Seu cronograma foi criado com sucesso.</p>
-            <button id="close-popup" class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md">OK</button>
-        </div>
-    `;
-    document.body.appendChild(popup);
+    downloadPdfBtn.addEventListener('click', () => {
+        loadingMessage.classList.remove('hidden'); 
 
-    document.getElementById('close-popup').addEventListener('click', () => {
-        popup.classList.add('opacity-0');
-        setTimeout(() => popup.remove(), 200);
+        const { jsPDF } = window.jspdf;
+
+        html2canvas(pdfContent, {
+            scale: 2,
+            useCORS: true
+        }).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            
+            const imgWidth = 210; 
+            const pageHeight = 297; 
+            const imgHeight = canvas.height * imgWidth / canvas.width;
+            let heightLeft = imgHeight;
+
+            const doc = new jsPDF('p', 'mm', 'a4'); 
+            let position = 0;
+
+            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+
+            while (heightLeft > 0) {
+                position = heightLeft - imgHeight;
+                doc.addPage();
+                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+            }
+
+            doc.save('cronograma-implantacao.pdf');
+
+            loadingMessage.classList.add('hidden');
+        }).catch(err => {
+            console.error('Erro ao gerar PDF:', err);
+            alert('Ocorreu um erro ao gerar o PDF.');
+            loadingMessage.classList.add('hidden');
+        });
     });
-}
 
+    function showPopup() {
+        const popup = document.getElementById('popup-cronograma');
+        const closeBtn = document.getElementById('close-popup-btn');
+        if (!popup || !closeBtn) return;
+
+        popup.classList.remove('hidden');
+
+        const newCloseBtn = closeBtn.cloneNode(true);
+        closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+        
+        newCloseBtn.addEventListener('click', () => {
+            popup.classList.add('hidden');
+        });
+
+        setTimeout(() => {
+            popup.classList.add('hidden');
+        }, 3000);
+    }
+    
     generateScheduleBtn.addEventListener('click', () => {
-    removedSessions = []; 
-    renderTimeline();
-    showPopup(); 
+        removedSessions = [];
+        renderTimeline();
+        showPopup(); 
     });
 
 });
