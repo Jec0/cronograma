@@ -156,10 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedDays.length === 0 || !startDateInput.value) {
             selectionAlert.style.display = 'block';
             timelineContainer.innerHTML = '';
-            if (chartInstance) chartInstance.destroy();
+            
+            // Destrói o gráfico se não houver dados
+            if (chartInstance) {
+                chartInstance.destroy();
+                chartInstance = null;
+            }
             
             if(totalSessionsEl) totalSessionsEl.textContent = '0'; 
-
             return;
         }
 
@@ -172,6 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
 
+        // Gera o gráfico
         renderSessionsChart(dataToRender);
 
         const months = [...new Set(dataToRender.map(item => item.month))];
@@ -197,12 +202,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
                 sessionCard.dataset.index = globalIndex;
 
+                // --- MUDANÇA PRINCIPAL AQUI ---
+                // Adicionamos classes 'editable-field' e 'data-key' para identificar
+                // os campos e um 'title' para instruir o usuário.
                 sessionCard.innerHTML = `
                     <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
                     <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
-                    <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'}\">${session.module}</p>
-                    <div class=\"text-sm text-gray-600 mt-2\">${session.description}</div>
+                    
+                    <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'} editable-field\" 
+                       data-key=\"module\" 
+                       title=\"Dê dois cliques para editar\">
+                       ${session.module}
+                    </p>
+                    <div class=\"text-sm text-gray-600 mt-2 editable-field\" 
+                         data-key=\"description\" 
+                         title=\"Dê dois cliques para editar\">
+                         ${session.description}
+                    </div>
                 `;
+                // --- FIM DA MUDANÇA ---
 
                 sessionsGrid.appendChild(sessionCard);
             });
@@ -273,13 +291,80 @@ document.addEventListener('DOMContentLoaded', () => {
     timelineContainer.addEventListener('click', e => {
         if (e.target.classList.contains('remove-session-btn')) {
             const index = parseInt(e.target.closest('.session-card').dataset.index);
-            if (confirm('Deseja remover este treinamento apenas desta geração?')) {
+
+            const deleteAction = () => {
                 removedSessions.push(index);
                 renderTimeline();
-            }
+            };
+
+            showConfirmationPopup(
+                'Confirmar Exclusão', 
+                'Deseja realmente remover este treinamento da geração atual?', 
+                deleteAction
+            );
         }
     });
 
+    timelineContainer.addEventListener('dblclick', e => {
+        // Verifica se o alvo é um campo marcado como 'editable-field'
+        if (e.target.classList.contains('editable-field')) {
+            const element = e.target;
+            element.contentEditable = true; // Torna o elemento editável
+            element.focus(); // Coloca o cursor dentro dele
+            
+            // Seleciona o texto para facilitar a substituição
+            document.execCommand('selectAll', false, null);
+        }
+    });
+
+    // 7.2 OUVINTE DE 'BLUR' (PARA DESLIGAR EDIÇÃO E SALVAR)
+    // 'blur' é disparado quando o elemento perde o foco (o usuário clica fora)
+    // O 'true' no final é importante, usa "capture phase" para ser mais confiável
+    timelineContainer.addEventListener('blur', e => {
+        if (e.target.classList.contains('editable-field')) {
+            const element = e.target;
+            
+            // 1. Desliga a edição
+            element.contentEditable = false;
+
+            // 2. Pega os dados para salvar
+            const newText = element.textContent; // Pega o novo texto
+            const keyToUpdate = element.dataset.key; // 'module' ou 'description'
+            const index = parseInt(e.target.closest('.session-card').dataset.index); // Pega o índice global
+
+            // 3. Atualiza o array 'trainingData' original
+            if (trainingData[index] && trainingData[index][keyToUpdate] !== undefined) {
+                // Salva a mudança no nosso array de dados mestre
+                trainingData[index][keyToUpdate] = newText;
+            } else {
+                console.error('Não foi possível salvar a edição: Índice ou chave de dados inválida.');
+            }
+        }
+    }, true);
+
+    // 7.3 OUVINTE DE 'KEYDOWN' (PARA SALVAR COM 'ENTER')
+    timelineContainer.addEventListener('keydown', e => {
+        // Verifica se está editando um campo
+        if (e.target.classList.contains('editable-field') && e.target.isContentEditable) {
+            
+            // Se for 'Enter' (e NÃO 'Shift+Enter')
+            if (e.key === 'Enter' && !e.shiftKey) {
+                // E for o campo 'module' (o título)
+                if (e.target.dataset.key === 'module') {
+                    e.preventDefault(); // Impede o 'Enter' de criar uma nova linha
+                    e.target.blur();  // Dispara o 'blur', que vai salvar e desligar a edição
+                }
+                // Se for o campo 'description', o 'Enter' pode ser usado para criar novas linhas,
+                // então não fazemos nada, o usuário salvará clicando fora (blur).
+            }
+            
+            // Se for 'Escape', apenas desliga a edição (e o 'blur' vai salvar)
+            if (e.key === 'Escape') {
+                e.target.blur();
+            }
+        }
+    });
+    
     downloadPdfBtn.addEventListener('click', async () => {
         loadingMessage.classList.remove('hidden');
 
@@ -370,6 +455,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     }
     
+    function showConfirmationPopup(title, message, onConfirmCallback) {
+        const popup = document.createElement('div');
+        popup.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50';
+        popup.id = 'confirmation-popup';
+        
+        popup.innerHTML = `
+            <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full border-t-4 border-red-500 animate-popup">
+                <div class="flex justify-center mb-3">
+                    <svg class="h-12 w-12 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold text-gray-800 text-center mb-2">${title}</h2>
+                <p class="text-gray-600 text-center mb-6">${message}</p>
+                
+                <div class="flex justify-center gap-4">
+                    <button id="confirm-cancel-btn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                        Cancelar
+                    </button>
+                    <button id="confirm-action-btn" class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                        Confirmar
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(popup);
+
+        const cancelButton = document.getElementById('confirm-cancel-btn');
+        const confirmButton = document.getElementById('confirm-action-btn');
+
+        cancelButton.addEventListener('click', () => {
+            popup.remove();
+        });
+
+        confirmButton.addEventListener('click', () => {
+            onConfirmCallback();
+            popup.remove();
+        });
+    }
     generateScheduleBtn.addEventListener('click', () => {
         removedSessions = [];
         renderTimeline();
