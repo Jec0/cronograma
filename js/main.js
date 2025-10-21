@@ -157,7 +157,6 @@ document.addEventListener('DOMContentLoaded', () => {
             selectionAlert.style.display = 'block';
             timelineContainer.innerHTML = '';
             
-            // Destrói o gráfico se não houver dados
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
@@ -176,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
 
-        // Gera o gráfico
         renderSessionsChart(dataToRender);
 
         const months = [...new Set(dataToRender.map(item => item.month))];
@@ -202,9 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
                 sessionCard.dataset.index = globalIndex;
 
-                // --- MUDANÇA PRINCIPAL AQUI ---
-                // Adicionamos classes 'editable-field' e 'data-key' para identificar
-                // os campos e um 'title' para instruir o usuário.
                 sessionCard.innerHTML = `
                     <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
                     <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
@@ -220,7 +215,6 @@ document.addEventListener('DOMContentLoaded', () => {
                          ${session.description}
                     </div>
                 `;
-                // --- FIM DA MUDANÇA ---
 
                 sessionsGrid.appendChild(sessionCard);
             });
@@ -306,35 +300,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     timelineContainer.addEventListener('dblclick', e => {
-        // Verifica se o alvo é um campo marcado como 'editable-field'
         if (e.target.classList.contains('editable-field')) {
             const element = e.target;
-            element.contentEditable = true; // Torna o elemento editável
-            element.focus(); // Coloca o cursor dentro dele
+            element.contentEditable = true;
+            element.focus();
             
-            // Seleciona o texto para facilitar a substituição
             document.execCommand('selectAll', false, null);
         }
     });
 
-    // 7.2 OUVINTE DE 'BLUR' (PARA DESLIGAR EDIÇÃO E SALVAR)
-    // 'blur' é disparado quando o elemento perde o foco (o usuário clica fora)
-    // O 'true' no final é importante, usa "capture phase" para ser mais confiável
     timelineContainer.addEventListener('blur', e => {
         if (e.target.classList.contains('editable-field')) {
             const element = e.target;
             
-            // 1. Desliga a edição
             element.contentEditable = false;
 
-            // 2. Pega os dados para salvar
-            const newText = element.textContent; // Pega o novo texto
-            const keyToUpdate = element.dataset.key; // 'module' ou 'description'
-            const index = parseInt(e.target.closest('.session-card').dataset.index); // Pega o índice global
+            const newText = element.textContent; 
+            const keyToUpdate = element.dataset.key;
+            const index = parseInt(e.target.closest('.session-card').dataset.index); 
 
-            // 3. Atualiza o array 'trainingData' original
             if (trainingData[index] && trainingData[index][keyToUpdate] !== undefined) {
-                // Salva a mudança no nosso array de dados mestre
                 trainingData[index][keyToUpdate] = newText;
             } else {
                 console.error('Não foi possível salvar a edição: Índice ou chave de dados inválida.');
@@ -342,23 +327,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, true);
 
-    // 7.3 OUVINTE DE 'KEYDOWN' (PARA SALVAR COM 'ENTER')
     timelineContainer.addEventListener('keydown', e => {
-        // Verifica se está editando um campo
         if (e.target.classList.contains('editable-field') && e.target.isContentEditable) {
             
-            // Se for 'Enter' (e NÃO 'Shift+Enter')
             if (e.key === 'Enter' && !e.shiftKey) {
-                // E for o campo 'module' (o título)
                 if (e.target.dataset.key === 'module') {
-                    e.preventDefault(); // Impede o 'Enter' de criar uma nova linha
-                    e.target.blur();  // Dispara o 'blur', que vai salvar e desligar a edição
+                    e.preventDefault(); 
+                    e.target.blur(); 
                 }
-                // Se for o campo 'description', o 'Enter' pode ser usado para criar novas linhas,
-                // então não fazemos nada, o usuário salvará clicando fora (blur).
+
             }
             
-            // Se for 'Escape', apenas desliga a edição (e o 'blur' vai salvar)
             if (e.key === 'Escape') {
                 e.target.blur();
             }
