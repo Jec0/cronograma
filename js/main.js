@@ -191,7 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
             monthSection.appendChild(monthHeader);
 
             const sessionsGrid = document.createElement('div');
-            sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
+            
+            sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 session-grid-container';
 
             const sessionsForMonth = dataToRender.filter(session => session.month === month);
             sessionsForMonth.forEach(session => {
@@ -199,12 +200,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isCompleted = session.status === 'completed';
 
                 const sessionCard = document.createElement('div');
-                sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
+                
+                sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-[#37502b]'}`;
                 sessionCard.dataset.index = globalIndex;
 
                 sessionCard.innerHTML = `
                     <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
-                    <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
+                    
+                    <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-[#37502b]'}\">${session.date} - ${session.day}</p>
                     
                     <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'} editable-field\" 
                        data-key=\"module\" 
@@ -224,66 +227,133 @@ document.addEventListener('DOMContentLoaded', () => {
             monthSection.appendChild(sessionsGrid);
             timelineContainer.appendChild(monthSection);
         });
+
+        initializeDragAndDrop();
     }
 
     function renderSessionsChart(data) {
-    if (chartInstance) {
-        chartInstance.destroy();
-    }
-
-    const ctx = document.getElementById('sessionsByMonthChart').getContext('2d');
-
-    const sessionsByMonth = data.reduce((acc, session) => {
-        const month = session.month; 
-        if (month) { 
-            acc[month] = (acc[month] || 0) + 1;
+        if (chartInstance) {
+            chartInstance.destroy();
         }
-        return acc;
-    }, {});
 
-    const labels = Object.keys(sessionsByMonth);
-    const dataCounts = Object.values(sessionsByMonth);
+        const ctx = document.getElementById('sessionsByMonthChart').getContext('2d');
 
-    chartInstance = new Chart(ctx, {
-        type: 'bar', 
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Sessões por Mês',
-                data: dataCounts,
-                backgroundColor: 'rgba(20, 184, 166, 0.6)', 
-                borderColor: 'rgba(15, 118, 110, 1)', 
-                borderWidth: 1,
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false 
-                },
-                title: {
-                    display: true,
-                    text: 'Distribuição de Sessões ao Longo dos Meses',
-                    font: {
-                        size: 16
-                    },
-                    color: '#374151'
-                }
+        const sessionsByMonth = data.reduce((acc, session) => {
+            const month = session.month; 
+            if (month) { 
+                acc[month] = (acc[month] || 0) + 1;
+            }
+            return acc;
+        }, {});
+
+        const labels = Object.keys(sessionsByMonth);
+        const dataCounts = Object.values(sessionsByMonth);
+
+        chartInstance = new Chart(ctx, {
+            type: 'bar', 
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Sessões por Mês',
+                    data: dataCounts,
+                    backgroundColor: 'rgba(20, 184, 166, 0.6)', 
+                    borderColor: 'rgba(15, 118, 110, 1)', 
+                    borderWidth: 1,
+                    borderRadius: 4
+                }]
             },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false 
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribuição de Sessões ao Longo dos Meses',
+                        font: {
+                            size: 16
+                        },
+                        color: '#374151'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
                     }
                 }
             }
+        });
+    }
+
+    function initializeDragAndDrop() {
+        if (window.sortableInstances) {
+            window.sortableInstances.forEach(instance => instance.destroy());
         }
-    });
-}
+        window.sortableInstances = [];
+
+        if (typeof Sortable === 'undefined') {
+            console.error('SortableJS não foi carregado. O "arrastar e soltar" não funcionará.');
+            return;
+        }
+
+        const grids = document.querySelectorAll('.session-grid-container');
+        grids.forEach(grid => {
+            const sortable = new Sortable(grid, {
+                group: 'shared-sessions', 
+                animation: 150,
+                draggable: '.session-card', 
+                onEnd: () => {
+                    updateTrainingDataOrder();
+                }
+            });
+            window.sortableInstances.push(sortable);
+        });
+    }
+
+    function updateTrainingDataOrder() {
+        try {
+            const oldTrainingData = [...trainingData];
+
+            const allCards = document.querySelectorAll('.session-card');
+            
+            const visibleOrderIndices = Array.from(allCards).map(card => parseInt(card.dataset.index));
+            
+            const visibleData = visibleOrderIndices.map(index => oldTrainingData[index]);
+
+            const removedIndices = new Set(removedSessions);
+
+            const newTrainingData = [];
+            let visibleItemIndex = 0;
+
+            for (let i = 0; i < oldTrainingData.length; i++) {
+                if (removedIndices.has(i)) {
+                    newTrainingData.push(oldTrainingData[i]);
+                } else {
+                    if (visibleItemIndex < visibleData.length) {
+                        newTrainingData.push(visibleData[visibleItemIndex]);
+                        visibleItemIndex++;
+                    }
+                }
+            }
+
+            trainingData = newTrainingData;
+
+            const originalRemovedItems = removedSessions.map(index => oldTrainingData[index]);
+            removedSessions = originalRemovedItems.map(item => trainingData.indexOf(item));
+
+            renderTimeline();
+        } catch (err) {
+            console.error("Erro ao reordenar os cards:", err);
+            renderTimeline();
+        }
+    }
+
+
     timelineContainer.addEventListener('click', e => {
         if (e.target.classList.contains('remove-session-btn')) {
             const index = parseInt(e.target.closest('.session-card').dataset.index);
@@ -522,10 +592,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         confirmButton.addEventListener('click', () => {
-            onConfirmCallback();
             popup.remove();
+            onConfirmCallback();
         });
     }
+    
     generateScheduleBtn.addEventListener('click', () => {
         removedSessions = [];
         renderTimeline();

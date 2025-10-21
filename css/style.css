@@ -128,9 +128,9 @@ body {
     border-radius: 50%;
     display: block;
     stroke-width: 3;
-    stroke: #14b8a6;
+    stroke: #46f882;
     stroke-miterlimit: 10;
-    box-shadow: inset 0px 0px 0px #14b8a6;
+    box-shadow: inset 0px 0px 0px #30f56b;
     animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
 }
 
