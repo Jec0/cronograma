@@ -172,6 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
 
+        renderSessionsChart(dataToRender);
+
         const months = [...new Set(dataToRender.map(item => item.month))];
         months.forEach(month => {
             const monthSection = document.createElement('div');
@@ -210,6 +212,64 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function renderSessionsChart(data) {
+    if (chartInstance) {
+        chartInstance.destroy();
+    }
+
+    const ctx = document.getElementById('sessionsByMonthChart').getContext('2d');
+
+    const sessionsByMonth = data.reduce((acc, session) => {
+        const month = session.month; 
+        if (month) { 
+            acc[month] = (acc[month] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    const labels = Object.keys(sessionsByMonth);
+    const dataCounts = Object.values(sessionsByMonth);
+
+    chartInstance = new Chart(ctx, {
+        type: 'bar', 
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Sessões por Mês',
+                data: dataCounts,
+                backgroundColor: 'rgba(20, 184, 166, 0.6)', 
+                borderColor: 'rgba(15, 118, 110, 1)', 
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false 
+                },
+                title: {
+                    display: true,
+                    text: 'Distribuição de Sessões ao Longo dos Meses',
+                    font: {
+                        size: 16
+                    },
+                    color: '#374151'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            }
+        }
+    });
+}
     timelineContainer.addEventListener('click', e => {
         if (e.target.classList.contains('remove-session-btn')) {
             const index = parseInt(e.target.closest('.session-card').dataset.index);
@@ -223,8 +283,6 @@ document.addEventListener('DOMContentLoaded', () => {
     downloadPdfBtn.addEventListener('click', async () => {
         loadingMessage.classList.remove('hidden');
 
-        // --- Elementos para esconder ANTES de gerar ---
-        // NOVA LINHA: Seleciona o parágrafo de texto no resumo
         const summaryTextToHide = document.querySelector('#summary > p'); 
         const removeButtons = document.querySelectorAll('.remove-session-btn');
 
@@ -237,33 +295,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const usableWidth = pdfWidth - (margin * 2);
             let currentY = margin;
 
-            // Função helper para tirar "foto" de um elemento
             const processElement = async (element) => {
                 if (!element) return null;
                 return await html2canvas(element, { scale: 2, useCORS: true });
             };
 
-            // Função helper para calcular altura da imagem no PDF
             const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
 
-            // --- Início da Geração ---
-
-            // --- MUDANÇA: ESCONDE os elementos ---
             if (summaryTextToHide) summaryTextToHide.style.visibility = 'hidden';
             removeButtons.forEach(btn => btn.style.visibility = 'hidden');
 
-            // 1. Processa o Bloco de Resumo (agora com o texto oculto)
             const summaryEl = document.getElementById('summary');
             const summaryCanvas = await processElement(summaryEl);
             const summaryHeight = getScaledHeight(summaryCanvas);
 
-            // Adiciona o resumo
             doc.addImage(summaryCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, summaryHeight);
-            currentY += summaryHeight + 10; // Adiciona padding
+            currentY += summaryHeight + 10; 
 
-            
-            // 2. Processa a Linha do Tempo (Mês a Mês)
-            // (Esta parte não mudou)
             const monthSections = document.querySelectorAll('.month-section');
 
             for (const monthSection of monthSections) {
@@ -290,16 +338,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentY += gridHeight + 5;
             }
 
-            // Salva o documento
             doc.save('cronograma-implantacao.pdf');
 
         } catch (err) {
             console.error('Erro ao gerar PDF:', err);
             alert('Ocorreu um erro ao gerar o PDF.');
         } finally {
-            // Bloco 'finally' garante que tudo volte ao normal, mesmo se der erro
             
-            // --- MUDANÇA: MOSTRA os elementos novamente ---
             if (summaryTextToHide) summaryTextToHide.style.visibility = 'visible';
             removeButtons.forEach(btn => btn.style.visibility = 'visible');
             loadingMessage.classList.add('hidden');
