@@ -220,43 +220,90 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    downloadPdfBtn.addEventListener('click', () => {
-        loadingMessage.classList.remove('hidden'); 
+    downloadPdfBtn.addEventListener('click', async () => {
+        loadingMessage.classList.remove('hidden');
 
-        const { jsPDF } = window.jspdf;
+        // --- Elementos para esconder ANTES de gerar ---
+        // NOVA LINHA: Seleciona o parágrafo de texto no resumo
+        const summaryTextToHide = document.querySelector('#summary > p'); 
+        const removeButtons = document.querySelectorAll('.remove-session-btn');
 
-        html2canvas(pdfContent, {
-            scale: 2,
-            useCORS: true
-        }).then(canvas => {
-            const imgData = canvas.toDataURL('image/png');
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = doc.internal.pageSize.getWidth();
+            const pdfHeight = doc.internal.pageSize.getHeight();
+            const margin = 10;
+            const usableWidth = pdfWidth - (margin * 2);
+            let currentY = margin;
+
+            // Função helper para tirar "foto" de um elemento
+            const processElement = async (element) => {
+                if (!element) return null;
+                return await html2canvas(element, { scale: 2, useCORS: true });
+            };
+
+            // Função helper para calcular altura da imagem no PDF
+            const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
+
+            // --- Início da Geração ---
+
+            // --- MUDANÇA: ESCONDE os elementos ---
+            if (summaryTextToHide) summaryTextToHide.style.visibility = 'hidden';
+            removeButtons.forEach(btn => btn.style.visibility = 'hidden');
+
+            // 1. Processa o Bloco de Resumo (agora com o texto oculto)
+            const summaryEl = document.getElementById('summary');
+            const summaryCanvas = await processElement(summaryEl);
+            const summaryHeight = getScaledHeight(summaryCanvas);
+
+            // Adiciona o resumo
+            doc.addImage(summaryCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, summaryHeight);
+            currentY += summaryHeight + 10; // Adiciona padding
+
             
-            const imgWidth = 210; 
-            const pageHeight = 297; 
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            let heightLeft = imgHeight;
+            // 2. Processa a Linha do Tempo (Mês a Mês)
+            // (Esta parte não mudou)
+            const monthSections = document.querySelectorAll('.month-section');
 
-            const doc = new jsPDF('p', 'mm', 'a4'); 
-            let position = 0;
+            for (const monthSection of monthSections) {
+                const titleEl = monthSection.querySelector('h3');
+                const gridEl = monthSection.querySelector('.grid');
+                if (!titleEl || !gridEl) continue;
 
-            doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+                const titleCanvas = await processElement(titleEl);
+                const gridCanvas = await processElement(gridEl);
 
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                doc.addPage();
-                doc.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+                const titleHeight = getScaledHeight(titleCanvas) + 3;
+                const gridHeight = getScaledHeight(gridCanvas);
+                const totalMonthHeight = titleHeight + gridHeight;
+
+                if (currentY + totalMonthHeight > pdfHeight - margin) {
+                    doc.addPage();
+                    currentY = margin;
+                }
+
+                doc.addImage(titleCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, getScaledHeight(titleCanvas));
+                currentY += titleHeight; 
+
+                doc.addImage(gridCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, gridHeight);
+                currentY += gridHeight + 5;
             }
 
+            // Salva o documento
             doc.save('cronograma-implantacao.pdf');
 
-            loadingMessage.classList.add('hidden');
-        }).catch(err => {
+        } catch (err) {
             console.error('Erro ao gerar PDF:', err);
             alert('Ocorreu um erro ao gerar o PDF.');
+        } finally {
+            // Bloco 'finally' garante que tudo volte ao normal, mesmo se der erro
+            
+            // --- MUDANÇA: MOSTRA os elementos novamente ---
+            if (summaryTextToHide) summaryTextToHide.style.visibility = 'visible';
+            removeButtons.forEach(btn => btn.style.visibility = 'visible');
             loadingMessage.classList.add('hidden');
-        });
+        }
     });
 
     function showPopup() {
