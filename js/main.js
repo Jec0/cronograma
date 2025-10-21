@@ -1,0 +1,244 @@
+document.addEventListener('DOMContentLoaded', () => {
+
+    localStorage.clear();
+    localStorage.setItem('version', '2.0');
+
+    const initialTrainingData = [
+        { module: 'Cadastros Usuários e RH', description: 'Cadastro de Usuários (Incluindo perfis/permissões) e Cadastro de Funcionários/RH (Fluxos do Módulo RH).', status: 'pending' },
+        { module: 'Cadastros Rotas e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
+        { module: 'Cadastros de Itens e Imobilizado', description: 'Cadastro de Produtos, Resíduos, Serviços e Imobilizados (Configuração inicial).', status: 'pending' },
+        { module: 'Reunião Contabilidade / Fiscais', description: 'Reunião Contabilidade / Integrações Fiscais (Validação de parâmetros fiscais).', status: 'pending' },
+        { module: 'Emissão Fiscal I - MTR On Line', description: 'MTR On Line (Emissão e gerenciamento de MTR On Line).', status: 'pending' },
+        { module: 'Contratos e Tributação (Base)', description: 'Ponto de Coleta, Configuração de Tributação e regras básicas do Módulo Contrato.', status: 'pending' },
+        { module: 'Contratos I (Criação)', description: 'Módulo Contratos I (Criação, aditivos, regras iniciais).', status: 'pending' },
+        { module: 'Revisão Fiscal II - CME + Impostos', description: 'CME + Impostos (Configuração de Custos Médios de Entrada e revisão de Impostos).', status: 'pending' },
+        { module: 'Contratos II (Gestão)', description: 'Módulo Contratos II (Gerenciamento, renovação).', status: 'pending' },
+        { module: 'Agrupamento e Financeiro I', description: 'Agrupamento de Contratos e Módulo Financeiro (Configurações iniciais).', status: 'pending' },
+        { module: 'Cadastros Base III - Fornecedores', description: 'Cadastro de Fornecedores e Módulo Compras.', status: 'pending' },
+        { module: 'Configurações de E-mails', description: 'Configuração de caixas postais e templates de e-mail.', status: 'pending' },
+        { module: 'Frota e Mobile I (Cadastros)', description: 'Cadastro de Veículos / Disp. Móveis, Usuários do App e Vinculação de Placa + Motorista.', status: 'pending' },
+        { module: 'Comercial I (CRM)', description: 'Cadastro de Prospect e Módulo CRM Comercial.', status: 'pending' },
+        { module: 'Parametrização Fiscal II', description: 'Parametrização MTR, CDF, CT-e.', status: 'pending' },
+        { module: 'Comercial II (Propostas)', description: 'Proposta de Venda / Requisição de Venda (Fluxo completo).', status: 'pending' },
+        { module: 'Administrativo II - Mala Direta', description: 'Configuração e uso do módulo Mala Direta.', status: 'pending' },
+        { module: 'Gestão de OS (Logística)', description: 'Logística e gerenciamento de Ordem de Serviço (O.S.).', status: 'pending' },
+        { module: 'Roteirização Avançada', description: 'Parametrização Roteirização Google Maps e Fluxo de Roteirização.', status: 'pending' },
+        { module: 'Mobile II (App)', description: 'Treinamento no uso prático do Aplicativo VS Resíduos.', status: 'pending' },
+        { module: 'Frota e Manutenção', description: 'Módulo Frota e manutenção de veículos.', status: 'pending' },
+        { module: 'Custos Avançados', description: 'Desdobramento de Custos e detalhamento do Plano de Contas.', status: 'pending' },
+        { module: 'Comunicação Externa', description: 'Configuração da integração WhatsApp e Treinamento de uso.', status: 'pending' },
+        { module: 'Controle de Imobilizados', description: 'Gestão e Controle do módulo de Imobilizados (Avançado).', status: 'pending' },
+        { module: 'Módulo Financeiro', description: 'Contas a pagar/receber, conciliação e fluxo financeiro geral.', status: 'pending' },
+        { module: 'Clientes e Painéis', description: 'Uso e configuração da Área do Cliente e Painel Gerencial.', status: 'pending' },
+        { module: 'Revisão Fiscal III - Notas Diversas', description: 'Emissão e gestão de Notas Diversas.', status: 'pending' },
+        { module: 'Destinação Final', description: 'Fluxo de Destinação Final de resíduos.', status: 'pending' },
+        { module: 'Emissão Fiscal III (Completa)', description: 'Emissão e conferência de CT-e e MDF-e, CDF e geração de laudos.', status: 'pending' },
+        { module: 'Configuração NF', description: 'Parametrização das NFS-e / NFE (Configurações municipais e estaduais).', status: 'pending' },
+        { module: 'Módulo Industrial', description: 'Treinamento no Módulo Indústria (Processo fabril).', status: 'pending' },
+        { module: 'Integração Bancária', description: 'Homologação bancária e Integração bancaria Remessa/Retorno.', status: 'pending' },
+        { module: 'Faturamento I (OS + BM)', description: 'Faturamento de Ordem de Serviço (OS) + Boletos e Medição (BM).', status: 'pending' },
+        { module: 'Faturamento II (NF + Boleto)', description: 'Faturamento: Emissão Nfse /NF-e + boleto (Fluxo completo).', status: 'pending' },
+        { module: 'Relatórios e Fechamentos', description: 'Reunião de Validação de Relatórios e Fechamentos.', status: 'pending' },
+        { module: 'Reunião Inicial', description: 'Reunião Inicial de Fluxo Operacional (Alinhamento de expectativa).', status: 'pending' },
+        { module: 'Transição para Suporte', description: 'Reunião de transição para o setor de Suporte.', status: 'pending' },
+        { module: 'Pontos Importantes', description: 'Pontuar todos fatos importantes do projeto e próximos passos.', status: 'pending' },
+    ];
+
+    let trainingData = [...initialTrainingData];
+    let removedSessions = [];
+    let selectedDays = [];
+    let chartInstance = null;
+
+    const timelineContainer = document.getElementById('timeline-container');
+    const generateScheduleBtn = document.getElementById('generate-schedule-btn');
+    const startDateInput = document.getElementById('start-date');
+    const startTimeInput = document.getElementById('start-time');
+    const selectionAlert = document.getElementById('selection-alert');
+
+
+    function initializeConfigControls() {
+        const daySelector = document.getElementById('day-selector');
+
+        selectedDays = JSON.parse(localStorage.getItem('selectedDays')) || [];
+
+        daySelector.querySelectorAll('.day-toggle').forEach(button => {
+            const day = parseInt(button.dataset.day);
+
+            if (selectedDays.includes(day)) {
+                button.classList.add('selected');
+            }
+
+            button.addEventListener('click', () => {
+                button.classList.toggle('selected');
+
+                selectedDays = Array.from(daySelector.querySelectorAll('.day-toggle.selected'))
+                    .map(btn => parseInt(btn.dataset.day));
+
+                localStorage.setItem('selectedDays', JSON.stringify(selectedDays));
+                renderTimeline();
+            });
+        });
+
+        startTimeInput.value = localStorage.getItem('startTime') || "";
+        startTimeInput.addEventListener('change', () => {
+            localStorage.setItem('startTime', startTimeInput.value);
+        });
+
+        startDateInput.value = localStorage.getItem('startDate') || "";
+        startDateInput.addEventListener('change', () => {
+            localStorage.setItem('startDate', startDateInput.value);
+        });
+}
+
+    initializeConfigControls();
+
+    function calculateScheduleDates(data, daysToUse, timeToUse, dateStart) {
+    if (daysToUse.length === 0 || !dateStart) {
+        document.getElementById('summary-start-date').textContent = '-';
+        document.getElementById('date-final').textContent = '-';
+        document.getElementById('summary-duration').textContent = '-';
+        return;
+    }
+
+    const [hour, minute] = timeToUse.split(':').map(Number);
+    const [startYear, startMonth, startDay] = dateStart.split('-').map(Number);
+    let currentDate = new Date(startYear, startMonth - 1, startDay, hour, minute);
+
+    while (!daysToUse.includes(currentDate.getDay())) {
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const actualFirstDate = new Date(currentDate);
+    
+    const startFormatted = `${String(actualFirstDate.getDate()).padStart(2, '0')}/${String(actualFirstDate.getMonth() + 1).padStart(2, '0')}/${actualFirstDate.getFullYear()}`;
+    document.getElementById('summary-start-date').textContent = startFormatted;
+
+    let lastSessionDate;
+
+    data.forEach(session => {
+        session.date = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
+        session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
+        session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
+
+        lastSessionDate = new Date(currentDate); 
+
+        let nextDate = new Date(currentDate);
+        do {
+            nextDate.setDate(nextDate.getDate() + 1);
+        } while (!daysToUse.includes(nextDate.getDay()));
+
+        currentDate = nextDate;
+    });
+
+    if (data.length > 0 && lastSessionDate) {
+        const finalFormatted = `${String(lastSessionDate.getDate()).padStart(2, '0')}/${String(lastSessionDate.getMonth() + 1).padStart(2, '0')}/${lastSessionDate.getFullYear()}`;
+        document.getElementById('date-final').textContent = finalFormatted;
+
+        let startMonthIndex = actualFirstDate.getFullYear() * 12 + actualFirstDate.getMonth();
+        let endMonthIndex = lastSessionDate.getFullYear() * 12 + lastSessionDate.getMonth();
+        
+        let inclusiveMonthSpan = (endMonthIndex - startMonthIndex) + 1;
+
+        document.getElementById('summary-duration').textContent = `~${inclusiveMonthSpan} ${inclusiveMonthSpan > 1 ? 'Meses' : 'Mês'}`;
+    
+    } else {
+         document.getElementById('date-final').textContent = '-';
+         document.getElementById('summary-duration').textContent = '-';
+    }
+}
+
+    function renderTimeline() {
+    const totalSessionsEl = document.getElementById('summary-total-sessions');
+
+    if (selectedDays.length === 0 || !startDateInput.value) {
+        selectionAlert.style.display = 'block';
+        timelineContainer.innerHTML = '';
+        if (chartInstance) chartInstance.destroy();
+        
+        if(totalSessionsEl) totalSessionsEl.textContent = '0'; 
+
+        return;
+    }
+
+    selectionAlert.style.display = 'none';
+    timelineContainer.innerHTML = '';
+
+    let dataToRender = trainingData.filter((_, i) => !removedSessions.includes(i));
+    
+    if(totalSessionsEl) totalSessionsEl.textContent = dataToRender.length;
+
+    calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
+
+    const months = [...new Set(dataToRender.map(item => item.month))];
+    months.forEach(month => {
+        const monthSection = document.createElement('div');
+        monthSection.id = month.replace(/\\s/g, '-').replace('/', '-');
+        monthSection.className = 'month-section';
+
+        const monthHeader = document.createElement('h3');
+        monthHeader.className = 'text-xl font-bold text-teal-700 border-b-2 border-teal-200 pb-2 mb-4';
+        monthHeader.textContent = month;
+        monthSection.appendChild(monthHeader);
+
+        const sessionsGrid = document.createElement('div');
+        sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4';
+
+        const sessionsForMonth = dataToRender.filter(session => session.month === month);
+        sessionsForMonth.forEach(session => {
+            const globalIndex = trainingData.indexOf(session);
+            const isCompleted = session.status === 'completed';
+
+            const sessionCard = document.createElement('div');
+            sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-blue-500'}`;
+            sessionCard.dataset.index = globalIndex;
+
+            sessionCard.innerHTML = `
+                <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
+                <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-blue-800'}\">${session.date} - ${session.day}</p>
+                <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'}\">${session.module}</p>
+                <div class=\"text-sm text-gray-600 mt-2\">${session.description}</div>
+            `;
+
+            sessionsGrid.appendChild(sessionCard);
+        });
+
+        monthSection.appendChild(sessionsGrid);
+        timelineContainer.appendChild(monthSection);
+    });
+}
+
+    timelineContainer.addEventListener('click', e => {
+        if (e.target.classList.contains('remove-session-btn')) {
+            const index = parseInt(e.target.closest('.session-card').dataset.index);
+            if (confirm('Deseja remover este treinamento apenas desta geração?')) {
+                removedSessions.push(index);
+                renderTimeline();
+            }
+        }
+    });
+
+    function showPopup() {
+    const popup = document.createElement('div');
+    popup.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50';
+    popup.innerHTML = `
+        <div class="bg-white rounded-lg shadow-xl p-6 text-center max-w-sm w-full">
+            <h2 class="text-lg font-semibold text-teal-700 mb-2">Cronograma Gerado!</h2>
+            <p class="text-gray-600">Seu cronograma foi criado com sucesso.</p>
+            <button id="close-popup" class="mt-4 px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md">OK</button>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    document.getElementById('close-popup').addEventListener('click', () => {
+        popup.classList.add('opacity-0');
+        setTimeout(() => popup.remove(), 200);
+    });
+}
+
+    generateScheduleBtn.addEventListener('click', () => {
+    removedSessions = []; 
+    renderTimeline();
+    showPopup(); 
+    });
+
+});

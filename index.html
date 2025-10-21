@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronograma Interativo de Treinamentos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="smooth-scroll">
+    <div id="loading-message" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center hidden">
+        <div class="p-4 bg-white rounded-lg shadow-xl text-gray-800 flex items-center space-x-2">
+            <svg class="animate-spin h-5 w-5 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Gerando PDF... Por favor, aguarde.</span>
+        </div>
+    </div>
+    
+    <section class="splash-cover" id="cover-page">
+        <div class="splash-text-container">
+            <h1 class="text-4xl md:text-5xl font-extrabold leading-tight">
+                Fique atento ao seu <br><span class="text-yellow-400">cronograma</span> de <br>implantação
+            </h1>
+            <p class="mt-4 text-gray-200 text-lg">Vision Resíduos</p>
+        </div>
+    </section>
+
+    <div class="main-content-wrapper min-h-screen">
+        <div class="container mx-auto p-4 md:p-8" id="pdf-content">
+            
+            <header class="text-center mb-8 p-4 bg-white rounded-lg shadow-md">
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Cronograma de Treinamentos</h1>
+            </header>
+
+            <main>
+                <section id="configuration" class="mb-8 p-6 bg-white rounded-lg shadow-md">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4">Configuração do Agendamento Dinâmico</h2>
+                    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
+                        
+                        <div class="flex-grow">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Escolha os Dias da Semana para Treinamento:</label>
+                            <div id="day-selector" class="flex flex-wrap gap-2">
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="1">Seg.</button>
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="2">Ter.</button>
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="3">Qua.</button>
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="4">Qui.</button>
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="5">Sex.</button>
+                                <button type="button" class="day-toggle px-3 py-1 text-sm font-medium border rounded-md" data-day="6">Sáb.</button>
+                            </div>
+                        </div>
+
+                        <div class="flex space-x-4">
+                             <div>
+                                <label for="start-time" class="block text-sm font-medium text-gray-700 mb-2">Horário Padrão:</label>
+                                <input type="time" id="start-time" class="w-full px-3 py-1 border border-gray-300 rounded-md text-gray-900">
+                            </div>
+                            <div>
+                                <label for="start-date" class="block text-sm font-medium text-gray-700 mb-2">Data de Início:</label>
+                                <input type="date" id="start-date" class="w-full px-3 py-1 border border-gray-300 rounded-md text-gray-900">
+                            </div>
+                        </div>
+                        
+                        <div class="flex-shrink-0 mt-4 lg:mt-0">
+                            <button id="generate-schedule-btn" class="w-full lg:w-auto px-6 py-2 text-sm font-semibold text-white bg-red-600 rounded-md hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                Gerar Cronograma
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-red-600 mt-3 font-semibold" id="selection-alert" style="display:none;">
+                        Por favor, selecione pelo menos um dia da semana e uma data de início válida para gerar o cronograma.
+                    </p>
+                </section>
+
+
+                <section id="summary" class="mb-8 p-6 bg-white rounded-lg shadow-md">
+                    <h2 class="text-2xl font-bold text-gray-700 mb-4">Visão Geral do Projeto</h2>
+                    <p class="text-gray-600 mb-6">
+                        Utilize o "drag and drop" nas sessões abaixo para mudar a ordem do treinamento. A cada reordenação ou clique em "Gerar Cronograma", as datas subsequentes são **automaticamente recalculadas** para a próxima data disponível.
+                    </p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 text-center">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <p class="text-sm text-blue-800 font-semibold">Total de Sessões</p>
+                            <p id="summary-total-sessions" class="text-2xl font-bold text-blue-900">38</p> 
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <p class="text-sm text-green-800 font-semibold">Data de Início</p>
+                            <p class="text-xl font-bold text-green-900" id="summary-start-date">--/--/----</p> 
+                        </div>
+                        <div class="bg-red-50 p-4 rounded-lg">
+                            <p class="text-sm text-red-800 font-semibold">Data Final</p>
+                            <p id="date-final" class="text-xl font-bold text-red-900">--/--/----</p> 
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <p class="text-sm text-yellow-800 font-semibold">Duração</p>
+                            <p class="text-xl font-bold text-yellow-900" id="summary-duration">--</p>
+                        </div>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="sessionsByMonthChart"></canvas>
+                    </div>
+                </section>
+
+                <section id="timeline-section" class="bg-white rounded-lg shadow-md p-6">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-gray-700">Linha do Tempo Interativa</h2>
+                                <p class="text-gray-600 mt-1">Arraste e solte as sessões para reordenar o cronograma. Clique na data ou no texto para editar.</p>
+                            </div>
+                            <div class="flex flex-col sm:flex-row items-center gap-3 mt-4 md:mt-0">
+                                <button id="add-session-btn" class="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500">
+                                    Adicionar Sessão
+                                </button>
+                                <button id="download-pdf-btn" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    Baixar PDF
+                                </button>
+                                <button id="download-csv-btn" class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                                    Baixar Excel
+                                </button>
+                                <div id="month-filters" class="flex flex-wrap gap-2 mt-2 sm:mt-0 pdf-hidden">
+                                </div>
+                            </div>
+                    </div>
+
+                    <div class="w-full bg-gray-200 rounded-full h-2.5 mb-6">
+                        <div id="progress-bar" class="bg-teal-500 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div id="timeline-container" class="space-y-8">
+                        </div>
+                        
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+<div id="popup-cronograma" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 hidden z-50">
+  <div class="bg-white rounded-xl shadow-lg p-6 text-center border-t-4 border-teal-500 animate-popup">
+    <div class="flex justify-center mb-3">
+      <div class="checkmark-container">
+        <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+          <circle class="checkmark-circle" cx="26" cy="26" r="25" fill="none"/>
+          <path class="checkmark-check" fill="none" d="M14 27l7 7 16-16"/>
+        </svg>
+      </div>
+    </div>
+    <h2 class="text-xl font-semibold text-teal-700 mb-2">Cronograma Gerado!</h2>
+    <p class="text-gray-600 mb-4">Seu cronograma foi atualizado com sucesso.</p>
+    <button id="close-popup-btn" class="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 transition-colors">
+      OK
+    </button>
+  </div>
+</div>
+
+<script>
+  const generateScheduleBtn = document.getElementById('generate-schedule-btn');
+  generateScheduleBtn.addEventListener('click', () => {
+      renderTimeline();
+      showPopup();
+  });
+
+  function showPopup() {
+      const popup = document.getElementById('popup-cronograma');
+      const closeBtn = document.getElementById('close-popup-btn');
+
+      popup.classList.remove('hidden');
+
+      closeBtn.addEventListener('click', () => {
+          popup.classList.add('hidden');
+      });
+
+      setTimeout(() => {
+          popup.classList.add('hidden');
+      }, 3000);
+  }
+</script>
+
+    </body>
+</html>
