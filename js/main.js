@@ -432,9 +432,10 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentY = margin;
 
             const processElement = async (element) => {
-                if (!element) return null;
-                return await html2canvas(element, { scale: 2, useCORS: true });
-            };
+            if (!element) return null;
+            return await html2canvas(element, { scale: 1, useCORS: true });
+    };
+
 
             const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
 
