@@ -1,9 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     localStorage.clear();
-    localStorage.setItem('version', '2.0');
+    localStorage.setItem('version', '2.2');
 
-    const initialTrainingData = [
+    const initialTrainingDataRaw = [
         { module: 'Cadastros Usuários e RH', description: 'Cadastro de Usuários (Incluindo perfis/permissões) e Cadastro de Funcionários/RH (Fluxos do Módulo RH).', status: 'pending' },
         { module: 'Cadastros Rotas e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
         { module: 'Cadastros de Itens e Imobilizado', description: 'Cadastro de Produtos, Resíduos, Serviços e Imobilizados (Configuração inicial).', status: 'pending' },
@@ -44,39 +44,36 @@ document.addEventListener('DOMContentLoaded', () => {
         { module: 'Pontos Importantes', description: 'Pontuar todos fatos importantes do projeto e próximos passos.', status: 'pending' },
     ];
 
-    let trainingData = [...initialTrainingData];
-    let removedSessions = [];
-    let selectedDays = [];
+    let trainingData = initialTrainingDataRaw.map((s, i) => ({ ...s, id: `s${i}` }));
+
+    let observationCards = [];
+
+    let sequence = trainingData.map(s => ({ type: 'session', id: s.id }));
+
+    let selectedDays = JSON.parse(localStorage.getItem('selectedDays')) || [];
     let chartInstance = null;
 
     const timelineContainer = document.getElementById('timeline-container');
     const generateScheduleBtn = document.getElementById('generate-schedule-btn');
     const startDateInput = document.getElementById('start-date');
     const startTimeInput = document.getElementById('start-time');
-    const selectionAlert = document.getElementById('selection-alert');
+    const selectionAlert = document.getElementById('selection-alert') || document.getElementById('selection-alert'); // pode existir em versões
     const downloadPdfBtn = document.getElementById('download-pdf-btn');
-    const loadingMessage = document.getElementById('loading-message');
-    const pdfContent = document.getElementById('pdf-content');
-
+    const downloadCsvBtn = document.getElementById('download-csv-btn');
+    const loadingMessage = document.getElementById('loading-message') || document.getElementById('loading-message');
 
     function initializeConfigControls() {
         const daySelector = document.getElementById('day-selector');
 
         selectedDays = JSON.parse(localStorage.getItem('selectedDays')) || [];
-
         daySelector.querySelectorAll('.day-toggle').forEach(button => {
             const day = parseInt(button.dataset.day);
-
             if (selectedDays.includes(day)) {
                 button.classList.add('selected');
             }
-
             button.addEventListener('click', () => {
                 button.classList.toggle('selected');
-
-                selectedDays = Array.from(daySelector.querySelectorAll('.day-toggle.selected'))
-                    .map(btn => parseInt(btn.dataset.day));
-
+                selectedDays = Array.from(daySelector.querySelectorAll('.day-toggle.selected')).map(btn => parseInt(btn.dataset.day));
                 localStorage.setItem('selectedDays', JSON.stringify(selectedDays));
                 renderTimeline();
             });
@@ -92,40 +89,31 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('startDate', startDateInput.value);
         });
     }
+    initializeConfigControls();
 
-    initializeConfigControls(); 
-
-    function calculateScheduleDates(data, daysToUse, timeToUse, dateStart) {
-        if (daysToUse.length === 0 || !dateStart) {
-            document.getElementById('summary-start-date').textContent = '-';
-            document.getElementById('date-final').textContent = '-';
-            document.getElementById('summary-duration').textContent = '-';
+    function calculateScheduleDatesForSessions(daysToUse, timeToUse, dateStart) {
+        if (!dateStart || daysToUse.length === 0) {
+            document.getElementById('summary-start-date') && (document.getElementById('summary-start-date').textContent = '-');
+            document.getElementById('date-final') && (document.getElementById('date-final').textContent = '-');
+            document.getElementById('summary-duration') && (document.getElementById('summary-duration').textContent = '-');
             return;
         }
 
-        const [hour, minute] = timeToUse.split(':').map(Number);
+        const [hour, minute] = (timeToUse || "00:00").split(':').map(Number);
         const [startYear, startMonth, startDay] = dateStart.split('-').map(Number);
         let currentDate = new Date(startYear, startMonth - 1, startDay, hour, minute);
 
-        while (!daysToUse.includes(currentDate.getDay())) {
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
-
+        while (!daysToUse.includes(currentDate.getDay())) currentDate.setDate(currentDate.getDate() + 1);
         const actualFirstDate = new Date(currentDate);
-        
-        const startFormatted = `${String(actualFirstDate.getDate()).padStart(2, '0')}/${String(actualFirstDate.getMonth() + 1).padStart(2, '0')}/${actualFirstDate.getFullYear()}`;
-        document.getElementById('summary-start-date').textContent = startFormatted;
 
-        let lastSessionDate;
-
-        data.forEach(session => {
+        let lastSessionDate = null;
+        trainingData.forEach(session => {
             session.date = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
             session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
             session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
-
             session.fullDate = `${session.date}/${currentDate.getFullYear()}`;
 
-            lastSessionDate = new Date(currentDate); 
+            lastSessionDate = new Date(currentDate);
 
             let nextDate = new Date(currentDate);
             do {
@@ -135,54 +123,79 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDate = nextDate;
         });
 
-        if (data.length > 0 && lastSessionDate) {
-            const finalFormatted = `${String(lastSessionDate.getDate()).padStart(2, '0')}/${String(lastSessionDate.getMonth() + 1).padStart(2, '0')}/${lastSessionDate.getFullYear()}`;
-            document.getElementById('date-final').textContent = finalFormatted;
+        if (trainingData.length > 0 && lastSessionDate) {
+            const startFormatted = `${String(actualFirstDate.getDate()).padStart(2,'0')}/${String(actualFirstDate.getMonth()+1).padStart(2,'0')}/${actualFirstDate.getFullYear()}`;
+            const finalFormatted = `${String(lastSessionDate.getDate()).padStart(2,'0')}/${String(lastSessionDate.getMonth()+1).padStart(2,'0')}/${lastSessionDate.getFullYear()}`;
+            document.getElementById('summary-start-date') && (document.getElementById('summary-start-date').textContent = startFormatted);
+            document.getElementById('date-final') && (document.getElementById('date-final').textContent = finalFormatted);
 
             let startMonthIndex = actualFirstDate.getFullYear() * 12 + actualFirstDate.getMonth();
             let endMonthIndex = lastSessionDate.getFullYear() * 12 + lastSessionDate.getMonth();
-            
             let inclusiveMonthSpan = (endMonthIndex - startMonthIndex) + 1;
-
-            document.getElementById('summary-duration').textContent = `~${inclusiveMonthSpan} ${inclusiveMonthSpan > 1 ? 'Meses' : 'Mês'}`;
-        
+            document.getElementById('summary-duration') && (document.getElementById('summary-duration').textContent = `~${inclusiveMonthSpan} ${inclusiveMonthSpan > 1 ? 'Meses' : 'Mês'}`);
         } else {
-            document.getElementById('date-final').textContent = '-';
-            document.getElementById('summary-duration').textContent = '-';
+            document.getElementById('summary-start-date') && (document.getElementById('summary-start-date').textContent = '-');
+            document.getElementById('date-final') && (document.getElementById('date-final').textContent = '-');
+            document.getElementById('summary-duration') && (document.getElementById('summary-duration').textContent = '-');
         }
     }
 
     function renderTimeline() {
-        const totalSessionsEl = document.getElementById('summary-total-sessions');
-
         if (selectedDays.length === 0 || !startDateInput.value) {
-            selectionAlert.style.display = 'block';
+            selectionAlert && (selectionAlert.style.display = 'block');
             timelineContainer.innerHTML = '';
-            
             if (chartInstance) {
                 chartInstance.destroy();
                 chartInstance = null;
             }
-            
-            if(totalSessionsEl) totalSessionsEl.textContent = '0'; 
+            document.getElementById('summary-total-sessions') && (document.getElementById('summary-total-sessions').textContent = '0');
+            return;
+        } else {
+            selectionAlert && (selectionAlert.style.display = 'none');
+        }
+
+        calculateScheduleDatesForSessions(selectedDays, startTimeInput.value, startDateInput.value);
+
+        const monthsOrdered = [...new Set(trainingData.map(s => s.month))];
+
+        timelineContainer.innerHTML = '';
+
+        document.getElementById('summary-total-sessions') && (document.getElementById('summary-total-sessions').textContent = String(trainingData.length));
+
+        renderSessionsChart(trainingData);
+
+        const sessionsById = {};
+        trainingData.forEach(s => sessionsById[s.id] = s);
+        const obsById = {};
+        observationCards.forEach(o => obsById[o.id] = o);
+
+        if (monthsOrdered.length === 0) {
+            const emptySection = document.createElement('div');
+            emptySection.className = 'month-section';
+            const header = document.createElement('h3');
+            header.className = 'text-xl font-bold text-teal-700 border-b-2 border-teal-200 pb-2 mb-4';
+            header.textContent = 'Sem Sessões';
+            emptySection.appendChild(header);
+
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 session-grid-container';
+            emptySection.appendChild(grid);
+            timelineContainer.appendChild(emptySection);
+
+            sequence.forEach(item => {
+                if (item.type === 'observation') {
+                    const obs = obsById[item.id];
+                    if (obs) grid.appendChild(buildCardElement(obs, true, item.id));
+                }
+            });
+
+            initializeDragAndDrop(); 
             return;
         }
 
-        selectionAlert.style.display = 'none';
-        timelineContainer.innerHTML = '';
-
-        let dataToRender = trainingData.filter((_, i) => !removedSessions.includes(i));
-        
-        if(totalSessionsEl) totalSessionsEl.textContent = dataToRender.length;
-
-        calculateScheduleDates(dataToRender, selectedDays, startTimeInput.value, startDateInput.value);
-
-        renderSessionsChart(dataToRender);
-
-        const months = [...new Set(dataToRender.map(item => item.month))];
-        months.forEach(month => {
+        monthsOrdered.forEach(month => {
             const monthSection = document.createElement('div');
-            monthSection.id = month.replace(/\\s/g, '-').replace('/', '-');
+            monthSection.id = month.replace(/\s/g, '-').replace('/', '-');
             monthSection.className = 'month-section';
 
             const monthHeader = document.createElement('h3');
@@ -191,73 +204,300 @@ document.addEventListener('DOMContentLoaded', () => {
             monthSection.appendChild(monthHeader);
 
             const sessionsGrid = document.createElement('div');
-            
             sessionsGrid.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 session-grid-container';
-
-            const sessionsForMonth = dataToRender.filter(session => session.month === month);
-            sessionsForMonth.forEach(session => {
-                const globalIndex = trainingData.indexOf(session);
-                const isCompleted = session.status === 'completed';
-
-                const sessionCard = document.createElement('div');
-                
-                sessionCard.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : 'bg-gray-100 border-l-4 border-[#37502b]'}`;
-                sessionCard.dataset.index = globalIndex;
-
-                sessionCard.innerHTML = `
-                    <button class=\"absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn\">×</button>
-                    
-                    <p class=\"font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-[#37502b]'}\">${session.date} - ${session.day}</p>
-                    
-                    <p class=\"font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'} editable-field\" 
-                       data-key=\"module\" 
-                       title=\"Dê dois cliques para editar\">
-                       ${session.module}
-                    </p>
-                    <div class=\"text-sm text-gray-600 mt-2 editable-field\" 
-                         data-key=\"description\" 
-                         title=\"Dê dois cliques para editar\">
-                         ${session.description}
-                    </div>
-                `;
-
-                sessionsGrid.appendChild(sessionCard);
-            });
-
             monthSection.appendChild(sessionsGrid);
+
             timelineContainer.appendChild(monthSection);
+        });
+
+        let currentMonthIndex = 0;
+        let firstMonth = monthsOrdered[0];
+
+        sequence.forEach(item => {
+            if (item.type === 'session') {
+                const s = sessionsById[item.id];
+                if (!s) return;
+                const month = s.month || firstMonth;
+                const targetSection = timelineContainer.querySelector(`#${month.replace(/\s/g,'-').replace('/','-')} .session-grid-container`);
+                if (targetSection) {
+                    targetSection.appendChild(buildCardElement(s, false, item.id));
+                } else {
+                    const fallback = timelineContainer.querySelector('.session-grid-container');
+                    fallback && fallback.appendChild(buildCardElement(s, false, item.id));
+                }
+            } else if (item.type === 'observation') {
+                const o = obsById[item.id];
+                if (!o) return;
+                let placed = false;
+                const seqIndex = sequence.findIndex(x => x.type === item.type && x.id === item.id);
+                let chosenGrid = null;
+                for (let k = seqIndex + 1; k < sequence.length; k++) {
+                    if (sequence[k].type === 'session') {
+                        const nextSess = sessionsById[sequence[k].id];
+                        if (nextSess) {
+                            chosenGrid = timelineContainer.querySelector(`#${nextSess.month.replace(/\s/g,'-').replace('/','-')} .session-grid-container`);
+                            break;
+                        }
+                    }
+                }
+                if (!chosenGrid) {
+                    for (let k = seqIndex - 1; k >= 0; k--) {
+                        if (sequence[k].type === 'session') {
+                            const prevSess = sessionsById[sequence[k].id];
+                            if (prevSess) {
+                                chosenGrid = timelineContainer.querySelector(`#${prevSess.month.replace(/\s/g,'-').replace('/','-')} .session-grid-container`);
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!chosenGrid) chosenGrid = timelineContainer.querySelector('.session-grid-container');
+
+                if (chosenGrid) {
+                    chosenGrid.appendChild(buildCardElement(o, true, item.id));
+                }
+            }
         });
 
         initializeDragAndDrop();
     }
 
-    function renderSessionsChart(data) {
-        if (chartInstance) {
-            chartInstance.destroy();
+    function buildCardElement(obj, isObservation, itemId) {
+        const isCompleted = obj.status === 'completed';
+        const card = document.createElement('div');
+        card.className = `session-card relative p-4 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-[1.01] hover:shadow-lg ${isCompleted ? 'bg-green-100 border-l-4 border-green-500' : (isObservation ? 'bg-yellow-50 border-l-4 border-yellow-500' : 'bg-gray-100 border-l-4 border-[#37502b]')}`;
+        card.dataset.itemType = isObservation ? 'observation' : 'session';
+        card.dataset.itemId = itemId;
+        card.innerHTML = `
+            <button class="absolute top-2 right-2 text-red-500 hover:text-red-700 font-bold text-lg remove-session-btn">×</button>
+            ${!isObservation ? `<p class="font-bold text-sm ${isCompleted ? 'text-green-800' : 'text-[#37502b]'}">${obj.date || '--/--'} - ${obj.day || ''}</p>` : ''}
+            <p class="font-semibold ${isCompleted ? 'text-gray-700' : 'text-gray-800'} editable-field" data-key="module" title="Dê dois cliques para editar">${obj.module}</p>
+            <div class="text-sm text-gray-600 mt-2 editable-field" data-key="description" title="Dê dois cliques para editar">${obj.description}</div>
+        `;
+        return card;
+    }
+
+    function initializeDragAndDrop() {
+        if (window.sortableInstances && window.sortableInstances.length) {
+            window.sortableInstances.forEach(inst => inst.destroy());
+        }
+        window.sortableInstances = [];
+
+        const grids = document.querySelectorAll('.session-grid-container');
+        grids.forEach(grid => {
+            const sortable = new Sortable(grid, {
+                group: 'shared-sessions',
+                animation: 150,
+                draggable: '.session-card',
+                onAdd: rebuildSequenceFromDOM,
+                onUpdate: rebuildSequenceFromDOM,
+                onEnd: rebuildSequenceFromDOM
+            });
+            window.sortableInstances.push(sortable);
+        });
+    }
+
+    function rebuildSequenceFromDOM() {
+        const allCardEls = Array.from(document.querySelectorAll('.session-card'));
+        const newSeq = [];
+        allCardEls.forEach(cardEl => {
+            const type = cardEl.dataset.itemType;
+            const id = cardEl.dataset.itemId;
+            if (type && id) newSeq.push({ type, id });
+        });
+
+        const sessionsMap = {};
+        trainingData.forEach(s => sessionsMap[s.id] = s);
+        const obsMap = {};
+        observationCards.forEach(o => obsMap[o.id] = o);
+
+        const newTrainingData = [];
+        const newObservationCards = [];
+        newSeq.forEach(item => {
+            if (item.type === 'session' && sessionsMap[item.id]) {
+                newTrainingData.push(sessionsMap[item.id]);
+            } else if (item.type === 'observation' && obsMap[item.id]) {
+                newObservationCards.push(obsMap[item.id]);
+            }
+        });
+
+        trainingData.forEach(s => {
+            if (!newTrainingData.find(x => x.id === s.id)) newTrainingData.push(s);
+        });
+        observationCards.forEach(o => {
+            if (!newObservationCards.find(x => x.id === o.id)) newObservationCards.push(o);
+        });
+
+        trainingData = newTrainingData;
+        observationCards = newObservationCards;
+
+        sequence = [];
+        newSeq.forEach(item => {
+            if (item.type === 'session' && sessionsMap[item.id]) sequence.push(item);
+            if (item.type === 'observation' && obsMap[item.id]) sequence.push(item);
+        });
+
+        if (sequence.length === 0) {
+            sequence = trainingData.map(s => ({ type: 'session', id: s.id }));
+            observationCards.forEach(o => sequence.push({ type: 'observation', id: o.id }));
         }
 
-        const ctx = document.getElementById('sessionsByMonthChart').getContext('2d');
+        renderTimeline();
+    }
+
+    function addSession() {
+        const newId = 's' + Date.now();
+        const newSession = {
+            id: newId,
+            module: 'Nova Sessão',
+            description: 'Descrição da Sessão',
+            status: 'pending'
+        };
+        trainingData.push(newSession);
+        sequence.push({ type: 'session', id: newId });
+        renderTimeline();
+    }
+
+    function addObservation() {
+        const newId = 'o' + Date.now() + Math.floor(Math.random() * 1000);
+        const newObs = {
+            id: newId,
+            module: 'Observação',
+            description: 'Digite aqui sua observação...',
+            status: 'note'
+        };
+        observationCards.push(newObs);
+        sequence.push({ type: 'observation', id: newId });
+        renderTimeline();
+    }
+
+timelineContainer.addEventListener('click', e => {
+    if (!e.target.classList.contains('remove-session-btn')) return;
+
+    const cardEl = e.target.closest('.session-card');
+    if (!cardEl) return;
+    const type = cardEl.dataset.itemType;
+    const id = cardEl.dataset.itemId;
+    if (!id) return;
+
+    const popup = document.createElement('div');
+    popup.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50';
+    popup.innerHTML = `
+        <div class="bg-white rounded-xl shadow-lg p-6 text-center w-80 border-t-4 border-red-500 animate-popup">
+            <h2 class="text-xl font-semibold text-gray-800 mb-3">Remover item?</h2>
+            <p class="text-gray-600 mb-5">Tem certeza de que deseja excluir este ${type === 'session' ? 'treinamento' : 'card de observação'}?</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirm-remove" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                    Sim
+                </button>
+                <button id="cancel-remove" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition-colors">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(popup);
+
+    popup.querySelector('#cancel-remove').addEventListener('click', () => {
+        popup.remove();
+    });
+
+    popup.querySelector('#confirm-remove').addEventListener('click', () => {
+        popup.remove();
+
+        if (type === 'session') {
+            trainingData = trainingData.filter(s => s.id !== id);
+            sequence = sequence.filter(x => !(x.type === 'session' && x.id === id));
+        } else {
+            observationCards = observationCards.filter(o => o.id !== id);
+            sequence = sequence.filter(x => !(x.type === 'observation' && x.id === id));
+        }
+
+        renderTimeline();
+    });
+});
+
+
+    timelineContainer.addEventListener('dblclick', e => {
+        if (e.target.classList.contains('editable-field')) {
+            e.target.contentEditable = true;
+            e.target.focus();
+            document.execCommand('selectAll', false, null);
+        }
+    });
+
+    timelineContainer.addEventListener('blur', e => {
+        if (e.target.classList.contains('editable-field')) {
+            const field = e.target;
+            field.contentEditable = false;
+            const key = field.dataset.key;
+            const cardEl = field.closest('.session-card');
+            if (!cardEl) return;
+            const type = cardEl.dataset.itemType;
+            const id = cardEl.dataset.itemId;
+            if (!id) return;
+
+            if (type === 'session') {
+                const s = trainingData.find(x => x.id === id);
+                if (s) s[key] = field.textContent;
+            } else {
+                const o = observationCards.find(x => x.id === id);
+                if (o) o[key] = field.textContent;
+            }
+        }
+    }, true);
+
+    timelineContainer.addEventListener('keydown', e => {
+        if (e.target.classList.contains('editable-field') && e.target.isContentEditable) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                e.target.blur();
+            }
+            if (e.key === 'Escape') {
+                e.target.blur();
+            }
+        }
+    });
+    const addSessionBtn = document.getElementById('add-session-btn');
+    if (addSessionBtn) {
+        addSessionBtn.addEventListener('click', () => {
+            addSession();
+        });
+    }
+    let addObservationBtn = document.getElementById('add-observation-btn');
+    if (!addObservationBtn && addSessionBtn) {
+        addSessionBtn.insertAdjacentHTML('afterend', `<button id="add-observation-btn" class="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700 transition-colors">Adicionar Observação</button>`);
+        addObservationBtn = document.getElementById('add-observation-btn');
+    }
+    if (addObservationBtn) {
+        addObservationBtn.addEventListener('click', () => {
+            addObservation();
+        });
+    }
+
+    function renderSessionsChart(data) {
+        const ctxEl = document.getElementById('sessionsByMonthChart');
+        if (!ctxEl) return;
+        if (chartInstance) chartInstance.destroy();
 
         const sessionsByMonth = data.reduce((acc, session) => {
-            const month = session.month; 
-            if (month) { 
-                acc[month] = (acc[month] || 0) + 1;
-            }
+            const month = session.month || 'Sem Mês';
+            acc[month] = (acc[month] || 0) + 1;
             return acc;
         }, {});
 
         const labels = Object.keys(sessionsByMonth);
         const dataCounts = Object.values(sessionsByMonth);
 
-        chartInstance = new Chart(ctx, {
-            type: 'bar', 
+        chartInstance = new Chart(ctxEl.getContext('2d'), {
+            type: 'bar',
             data: {
-                labels: labels,
+                labels,
                 datasets: [{
                     label: 'Sessões por Mês',
                     data: dataCounts,
-                    backgroundColor: 'rgba(20, 184, 166, 0.6)', 
-                    borderColor: 'rgba(15, 118, 110, 1)', 
+                    backgroundColor: 'rgba(20, 184, 166, 0.6)',
+                    borderColor: 'rgba(15, 118, 110, 1)',
                     borderWidth: 1,
                     borderRadius: 4
                 }]
@@ -266,277 +506,131 @@ document.addEventListener('DOMContentLoaded', () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: {
-                        display: false 
-                    },
-                    title: {
-                        display: true,
-                        text: 'Distribuição de Sessões ao Longo dos Meses',
-                        font: {
-                            size: 16
-                        },
-                        color: '#374151'
-                    }
+                    legend: { display: false },
+                    title: { display: true, text: 'Distribuição de Sessões ao Longo dos Meses', font: { size: 16 }, color: '#374151' }
                 },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
             }
         });
     }
 
-    function initializeDragAndDrop() {
-        if (window.sortableInstances) {
-            window.sortableInstances.forEach(instance => instance.destroy());
-        }
-        window.sortableInstances = [];
-
-        if (typeof Sortable === 'undefined') {
-            console.error('SortableJS não foi carregado. O "arrastar e soltar" não funcionará.');
-            return;
-        }
-
-        const grids = document.querySelectorAll('.session-grid-container');
-        grids.forEach(grid => {
-            const sortable = new Sortable(grid, {
-                group: 'shared-sessions', 
-                animation: 150,
-                draggable: '.session-card', 
-                onEnd: () => {
-                    updateTrainingDataOrder();
-                }
-            });
-            window.sortableInstances.push(sortable);
-        });
-    }
-
-    function updateTrainingDataOrder() {
-        try {
-            const oldTrainingData = [...trainingData];
-
-            const allCards = document.querySelectorAll('.session-card');
-            
-            const visibleOrderIndices = Array.from(allCards).map(card => parseInt(card.dataset.index));
-            
-            const visibleData = visibleOrderIndices.map(index => oldTrainingData[index]);
-
-            const removedIndices = new Set(removedSessions);
-
-            const newTrainingData = [];
-            let visibleItemIndex = 0;
-
-            for (let i = 0; i < oldTrainingData.length; i++) {
-                if (removedIndices.has(i)) {
-                    newTrainingData.push(oldTrainingData[i]);
-                } else {
-                    if (visibleItemIndex < visibleData.length) {
-                        newTrainingData.push(visibleData[visibleItemIndex]);
-                        visibleItemIndex++;
-                    }
-                }
+    if (downloadCsvBtn) {
+        downloadCsvBtn.addEventListener('click', () => {
+            if (selectedDays.length === 0 || !startDateInput.value) {
+                alert('Por favor, gere um cronograma antes de exportar para Excel.');
+                return;
             }
+            calculateScheduleDatesForSessions(selectedDays, startTimeInput.value, startDateInput.value);
 
-            trainingData = newTrainingData;
+            const headers = ['Data Completa', 'Dia da Semana', 'Mês Referência', 'Módulo', 'Descrição'];
+            let csvContent = headers.join(';') + '\n';
 
-            const originalRemovedItems = removedSessions.map(index => oldTrainingData[index]);
-            removedSessions = originalRemovedItems.map(item => trainingData.indexOf(item));
-
-            renderTimeline();
-        } catch (err) {
-            console.error("Erro ao reordenar os cards:", err);
-            renderTimeline();
-        }
-    }
-
-
-    timelineContainer.addEventListener('click', e => {
-        if (e.target.classList.contains('remove-session-btn')) {
-            const index = parseInt(e.target.closest('.session-card').dataset.index);
-
-            const deleteAction = () => {
-                removedSessions.push(index);
-                renderTimeline();
+            const sanitize = (str) => {
+                if (str === null || str === undefined) str = '';
+                let s = str.toString();
+                if (s.includes(';') || s.includes('\n') || s.includes('"')) {
+                    s = s.replace(/"/g, '""');
+                    s = `"${s}"`;
+                }
+                return s;
             };
 
-            showConfirmationPopup(
-                'Confirmar Exclusão', 
-                'Deseja realmente remover este treinamento da geração atual?', 
-                deleteAction
-            );
-        }
-    });
+            trainingData.forEach(session => {
+                const row = [
+                    session.fullDate || '',
+                    session.day || '',
+                    session.month || '',
+                    session.module || '',
+                    session.description || ''
+                ];
+                csvContent += row.map(sanitize).join(';') + '\n';
+            });
 
-    timelineContainer.addEventListener('dblclick', e => {
-        if (e.target.classList.contains('editable-field')) {
-            const element = e.target;
-            element.contentEditable = true;
-            element.focus();
-            
-            document.execCommand('selectAll', false, null);
-        }
-    });
-
-    timelineContainer.addEventListener('blur', e => {
-        if (e.target.classList.contains('editable-field')) {
-            const element = e.target;
-            
-            element.contentEditable = false;
-
-            const newText = element.textContent; 
-            const keyToUpdate = element.dataset.key;
-            const index = parseInt(e.target.closest('.session-card').dataset.index); 
-
-            if (trainingData[index] && trainingData[index][keyToUpdate] !== undefined) {
-                trainingData[index][keyToUpdate] = newText;
-            } else {
-                console.error('Não foi possível salvar a edição: Índice ou chave de dados inválida.');
-            }
-        }
-    }, true);
-
-    timelineContainer.addEventListener('keydown', e => {
-        if (e.target.classList.contains('editable-field') && e.target.isContentEditable) {
-            
-            if (e.key === 'Enter' && !e.shiftKey) {
-                if (e.target.dataset.key === 'module') {
-                    e.preventDefault(); 
-                    e.target.blur(); 
-                }
-
-            }
-            
-            if (e.key === 'Escape') {
-                e.target.blur();
-            }
-        }
-    });
-    
-    downloadPdfBtn.addEventListener('click', async () => {
-        loadingMessage.classList.remove('hidden');
-
-        const summaryTextToHide = document.querySelector('#summary > p'); 
-        const removeButtons = document.querySelectorAll('.remove-session-btn');
-
-        try {
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = doc.internal.pageSize.getWidth();
-            const pdfHeight = doc.internal.pageSize.getHeight();
-            const margin = 10;
-            const usableWidth = pdfWidth - (margin * 2);
-            let currentY = margin;
-
-            const processElement = async (element) => {
-            if (!element) return null;
-            return await html2canvas(element, { scale: 1, useCORS: true });
-    };
-
-
-            const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
-
-            if (summaryTextToHide) summaryTextToHide.style.visibility = 'hidden';
-            removeButtons.forEach(btn => btn.style.visibility = 'hidden');
-
-            const summaryEl = document.getElementById('summary');
-            const summaryCanvas = await processElement(summaryEl);
-            const summaryHeight = getScaledHeight(summaryCanvas);
-
-            doc.addImage(summaryCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, summaryHeight);
-            currentY += summaryHeight + 10; 
-
-            const monthSections = document.querySelectorAll('.month-section');
-
-            for (const monthSection of monthSections) {
-                const titleEl = monthSection.querySelector('h3');
-                const gridEl = monthSection.querySelector('.grid');
-                if (!titleEl || !gridEl) continue;
-
-                const titleCanvas = await processElement(titleEl);
-                const gridCanvas = await processElement(gridEl);
-
-                const titleHeight = getScaledHeight(titleCanvas) + 3;
-                const gridHeight = getScaledHeight(gridCanvas);
-                const totalMonthHeight = titleHeight + gridHeight;
-
-                if (currentY + totalMonthHeight > pdfHeight - margin) {
-                    doc.addPage();
-                    currentY = margin;
-                }
-
-                doc.addImage(titleCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, getScaledHeight(titleCanvas));
-                currentY += titleHeight; 
-
-                doc.addImage(gridCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, gridHeight);
-                currentY += gridHeight + 5;
-            }
-
-            doc.save('cronograma-implantacao.pdf');
-
-        } catch (err) {
-            console.error('Erro ao gerar PDF:', err);
-            alert('Ocorreu um erro ao gerar o PDF.');
-        } finally {
-            
-            if (summaryTextToHide) summaryTextToHide.style.visibility = 'visible';
-            removeButtons.forEach(btn => btn.style.visibility = 'visible');
-            loadingMessage.classList.add('hidden');
-        }
-    });
-
-    const downloadCsvBtn = document.getElementById('download-csv-btn');
-
-    downloadCsvBtn.addEventListener('click', () => {
-        if (selectedDays.length === 0 || !startDateInput.value) {
-            alert('Por favor, gere um cronograma antes de exportar para Excel.');
-            return;
-        }
-
-        let dataToExport = trainingData.filter((_, i) => !removedSessions.includes(i));
-        
-        calculateScheduleDates(dataToExport, selectedDays, startTimeInput.value, startDateInput.value);
-
-        const headers = ['Data Completa', 'Dia da Semana', 'Mês Referência', 'Módulo', 'Descrição'];
-        let csvContent = headers.join(';') + '\n';
-
-        const sanitize = (str) => {
-            if (str === null || str === undefined) str = '';
-            let s = str.toString();
-            if (s.includes(';') || s.includes('\n') || s.includes('"')) {
-                s = s.replace(/"/g, '""'); 
-                s = `"${s}"`; 
-            }
-            return s;
-        };
-
-        dataToExport.forEach(session => {
-            const row = [
-                session.fullDate, 
-                session.day,
-                session.month,
-                session.module,
-                session.description
-            ];
-            csvContent += row.map(sanitize).join(';') + '\n';
+            const bom = '\uFEFF';
+            const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'cronograma.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         });
+    }
 
+    if (downloadPdfBtn) {
+        downloadPdfBtn.addEventListener('click', async () => {
+            loadingMessage && (loadingMessage.classList.remove('hidden'));
+            const summaryTextToHide = document.querySelector('#summary > p');
+            const removeButtons = document.querySelectorAll('.remove-session-btn');
 
-        const bom = '\uFEFF';
-        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-        
-        const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'cronograma.csv');
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    });
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = doc.internal.pageSize.getWidth();
+                const pdfHeight = doc.internal.pageSize.getHeight();
+                const margin = 10;
+                const usableWidth = pdfWidth - (margin * 2);
+                let currentY = margin;
+
+                const processElement = async (element) => {
+                    if (!element) return null;
+                    return await html2canvas(element, { scale: 1, useCORS: true });
+                };
+
+                const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
+
+                if (summaryTextToHide) summaryTextToHide.style.visibility = 'hidden';
+                removeButtons.forEach(btn => btn.style.visibility = 'hidden');
+
+                const summaryEl = document.getElementById('summary');
+                const summaryCanvas = summaryEl ? await processElement(summaryEl) : null;
+                if (summaryCanvas) {
+                    const summaryHeight = getScaledHeight(summaryCanvas);
+                    doc.addImage(summaryCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, summaryHeight);
+                    currentY += summaryHeight + 10;
+                }
+
+                const monthSections = document.querySelectorAll('.month-section');
+                for (const monthSection of monthSections) {
+                    const titleEl = monthSection.querySelector('h3');
+                    const gridEl = monthSection.querySelector('.grid');
+                    if (!titleEl || !gridEl) continue;
+
+                    const titleCanvas = await processElement(titleEl);
+                    const gridCanvas = await processElement(gridEl);
+
+                    if (!titleCanvas || !gridCanvas) continue;
+
+                    const titleHeight = getScaledHeight(titleCanvas) + 3;
+                    const gridHeight = getScaledHeight(gridCanvas);
+                    const totalMonthHeight = titleHeight + gridHeight;
+
+                    if (currentY + totalMonthHeight > pdfHeight - margin) {
+                        doc.addPage();
+                        currentY = margin;
+                    }
+
+                    doc.addImage(titleCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, getScaledHeight(titleCanvas));
+                    currentY += titleHeight;
+
+                    doc.addImage(gridCanvas.toDataURL('image/png'), 'PNG', margin, currentY, usableWidth, gridHeight);
+                    currentY += gridHeight + 5;
+                }
+
+                doc.save('cronograma-implantacao.pdf');
+
+            } catch (err) {
+                console.error('Erro ao gerar PDF:', err);
+                alert('Ocorreu um erro ao gerar o PDF.');
+            } finally {
+                if (summaryTextToHide) summaryTextToHide.style.visibility = 'visible';
+                document.querySelectorAll('.remove-session-btn').forEach(btn => btn.style.visibility = 'visible');
+                loadingMessage && (loadingMessage.classList.add('hidden'));
+            }
+        });
+    }
 
     function showPopup() {
         const popup = document.getElementById('popup-cronograma');
@@ -547,7 +641,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const newCloseBtn = closeBtn.cloneNode(true);
         closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
-        
+
         newCloseBtn.addEventListener('click', () => {
             popup.classList.add('hidden');
         });
@@ -556,52 +650,13 @@ document.addEventListener('DOMContentLoaded', () => {
             popup.classList.add('hidden');
         }, 3000);
     }
-    
-    function showConfirmationPopup(title, message, onConfirmCallback) {
-        const popup = document.createElement('div');
-        popup.className = 'fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50';
-        popup.id = 'confirmation-popup';
-        
-        popup.innerHTML = `
-            <div class="bg-white rounded-xl shadow-lg p-6 max-w-sm w-full border-t-4 border-red-500 animate-popup">
-                <div class="flex justify-center mb-3">
-                    <svg class="h-12 w-12 text-red-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
-                    </svg>
-                </div>
-                <h2 class="text-xl font-semibold text-gray-800 text-center mb-2">${title}</h2>
-                <p class="text-gray-600 text-center mb-6">${message}</p>
-                
-                <div class="flex justify-center gap-4">
-                    <button id="confirm-cancel-btn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
-                        Cancelar
-                    </button>
-                    <button id="confirm-action-btn" class="px-6 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
-                        Confirmar
-                    </button>
-                </div>
-            </div>
-        `;
 
-        document.body.appendChild(popup);
-
-        const cancelButton = document.getElementById('confirm-cancel-btn');
-        const confirmButton = document.getElementById('confirm-action-btn');
-
-        cancelButton.addEventListener('click', () => {
-            popup.remove();
-        });
-
-        confirmButton.addEventListener('click', () => {
-            popup.remove();
-            onConfirmCallback();
-        });
-    }
-    
-    generateScheduleBtn.addEventListener('click', () => {
-        removedSessions = [];
+    generateScheduleBtn && generateScheduleBtn.addEventListener('click', () => {
+        calculateScheduleDatesForSessions(selectedDays, startTimeInput.value, startDateInput.value);
         renderTimeline();
-        showPopup(); 
+        showPopup();
     });
+
+    renderTimeline();
 
 });
