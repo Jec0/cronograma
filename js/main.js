@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('version', '2.2');
 
     const initialTrainingDataRaw = [
+        { module: 'Fluxo Operacional Completo', description: 'Demonstração do Fluxo Operacional Completo do Sistema.', status: 'pending' },
         { module: 'Cadastros Usuários e RH', description: 'Cadastro de Usuários (Incluindo perfis/permissões) e Cadastro de Funcionários/RH (Fluxos do Módulo RH).', status: 'pending' },
         { module: 'Cadastros Rotas e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
         { module: 'Cadastros de Itens e Imobilizado', description: 'Cadastro de Produtos, Resíduos, Serviços e Imobilizados (Configuração inicial).', status: 'pending' },
