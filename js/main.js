@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialTrainingDataRaw = [
         { module: 'Fluxo Operacional Completo', description: 'Demonstração do Fluxo Operacional Completo do Sistema.', status: 'pending' },
         { module: 'Cadastros Usuários e RH', description: 'Cadastro de Usuários (Incluindo perfis/permissões) e Cadastro de Funcionários/RH (Fluxos do Módulo RH).', status: 'pending' },
-        { module: 'Cadastros Rotas e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
+        { module: 'Cadastros Rotas, Regiões e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
         { module: 'Cadastros de Residuos, Materiais e Serviços', description: 'Cadastro de Produtos, Resíduos, Serviços e Imobilizados (Configuração inicial).', status: 'pending' },
         { module: 'Reunião Contabilidade / Fiscais', description: 'Reunião Contabilidade / Integrações Fiscais (Validação de parâmetros fiscais).', status: 'pending' },
         { module: 'Emissão Fiscal I - MTR On Line', description: 'MTR On Line (Emissão e gerenciamento de MTR On Line).', status: 'pending' },
@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { module: 'Configurações de E-mails', description: 'Configuração de caixas postais e templates de e-mail.', status: 'pending' },
         { module: 'Frota e Mobile I (Cadastros)', description: 'Cadastro de Veículos / Disp. Móveis, Usuários do App e Vinculação de Placa + Motorista.', status: 'pending' },
         { module: 'Comercial I (CRM)', description: 'Cadastro de Prospect e Módulo CRM Comercial.', status: 'pending' },
-        { module: 'ParametrizaÇÃO Fiscal II', description: 'Parametrização MTR, CDF, CT-e.', status: 'pending' },
+        { module: 'Parametrização Fiscal II', description: 'Parametrização MTR, CDF, CT-e.', status: 'pending' },
         { module: 'Comercial II (Propostas)', description: 'Proposta de Venda / Requisição de Venda (Fluxo completo).', status: 'pending' },
         { module: 'Administrativo II - Mala Direta', description: 'Configuração e uso do módulo Mala Direta.', status: 'pending' },
         { module: 'Gestão de OS (Logística)', description: 'Logística e gerenciamento de Ordem de Serviço (O.S.).', status: 'pending' },
