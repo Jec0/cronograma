@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialTrainingDataRaw = [
         { module: 'Fluxo Operacional Completo', description: 'Demonstração do Fluxo Operacional Completo do Sistema.', status: 'pending' },
         { module: 'Cadastros Usuários e RH', description: 'Cadastro de Usuários (Incluindo perfis/permissões) e Cadastro de Funcionários/RH (Fluxos do Módulo RH).', status: 'pending' },
-        { module: 'Cadastros Rotas, Regiões e Clientes', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
+        { module: 'Cadastros Clientes, Rotas, Regiões e Ponto de Coleta', description: 'Cadastro de Rotas/ Regiões e Cadastro de Cliente (Detalhado).', status: 'pending' },
         { module: 'Cadastros de Residuos, Materiais e Serviços', description: 'Cadastro de Produtos, Resíduos, Serviços e Imobilizados (Configuração inicial).', status: 'pending' },
         { module: 'Reunião Contabilidade / Fiscais', description: 'Reunião Contabilidade / Integrações Fiscais (Validação de parâmetros fiscais).', status: 'pending' },
         { module: 'Emissão Fiscal I - MTR On Line', description: 'MTR On Line (Emissão e gerenciamento de MTR On Line).', status: 'pending' },
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { module: 'Administrativo II - Mala Direta', description: 'Configuração e uso do módulo Mala Direta.', status: 'pending' },
         { module: 'Gestão de OS (Logística)', description: 'Logística e gerenciamento de Ordem de Serviço (O.S.).', status: 'pending' },
         { module: 'Roteirização Avançada', description: 'Parametrização Roteirização Google Maps e Fluxo de Roteirização.', status: 'pending' },
-        { module: 'Mobile II (App)', description: 'Treinamento no uso prático do Aplicativo VS Resíduos.', status: 'pending' },
+        { module: 'Aplicativo VS Residuos', description: 'Treinamento no uso prático do Aplicativo VS Resíduos.', status: 'pending' },
         { module: 'Frota e Manutenção', description: 'Módulo Frota e manutenção de veículos.', status: 'pending' },
         { module: 'Custos Avançados', description: 'Desdobramento de Custos e detalhamento do Plano de Contas.', status: 'pending' },
         { module: 'Comunicação Externa', description: 'Configuração da integração WhatsApp e Treinamento de uso.', status: 'pending' },
