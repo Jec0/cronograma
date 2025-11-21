@@ -369,8 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
             description: 'Digite aqui sua observação...',
             status: 'note'
         };
-        observationCards.push(newObs);
-        sequence.push({ type: 'observation', id: newId });
+        observationCards.push(newObs); 
+        sequence.unshift({ type: 'observation', id: newId });
         renderTimeline();
     }
 
