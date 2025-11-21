@@ -567,7 +567,13 @@ timelineContainer.addEventListener('click', e => {
             loadingMessage && (loadingMessage.classList.remove('hidden'));
             const summaryTextToHide = document.querySelector('#summary > p');
             const removeButtons = document.querySelectorAll('.remove-session-btn');
+            const originalBodyBg = document.body.style.backgroundColor;
+            const wrapper = document.querySelector('.main-content-wrapper');
+            const originalWrapperBg = wrapper ? wrapper.style.backgroundColor : null;
 
+            document.body.style.backgroundColor = "#FFFFFF";
+            if (wrapper) wrapper.style.backgroundColor = "#FFFFFF";
+            
             try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF('p', 'mm', 'a4');
@@ -579,8 +585,12 @@ timelineContainer.addEventListener('click', e => {
 
                 const processElement = async (element) => {
                     if (!element) return null;
-                    return await html2canvas(element, { scale: 1, useCORS: true });
-                };
+                    return await html2canvas(element, {
+                    scale: 1,
+                    useCORS: true,
+                    backgroundColor: '#FFFFFF'
+                });
+            };
 
                 const getScaledHeight = (canvas) => (canvas.height * usableWidth) / canvas.width;
 
@@ -628,9 +638,15 @@ timelineContainer.addEventListener('click', e => {
                 console.error('Erro ao gerar PDF:', err);
                 alert('Ocorreu um erro ao gerar o PDF.');
             } finally {
+                document.body.style.backgroundColor = originalBodyBg || "";
+                if (wrapper) wrapper.style.backgroundColor = originalWrapperBg || "";
+
                 if (summaryTextToHide) summaryTextToHide.style.visibility = 'visible';
-                document.querySelectorAll('.remove-session-btn').forEach(btn => btn.style.visibility = 'visible');
-                loadingMessage && (loadingMessage.classList.add('hidden'));
+
+                document.querySelectorAll('.remove-session-btn')
+                .forEach(btn => btn.style.visibility = 'visible');
+
+                loadingMessage && loadingMessage.classList.add('hidden');
             }
         });
     }
