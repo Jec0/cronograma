@@ -110,7 +110,10 @@ document.addEventListener('DOMContentLoaded', () => {
         trainingData.forEach(session => {
             session.date = `${String(currentDate.getDate()).padStart(2, '0')}/${String(currentDate.getMonth() + 1).padStart(2, '0')}`;
             session.day = ['Dom.', 'Seg.', 'Ter.', 'Qua.', 'Qui.', 'Sex.', 'Sáb.'][currentDate.getDay()];
-            session.month = `${currentDate.toLocaleString('default', { month: 'long' })} - ${currentDate.getFullYear()}`;
+            const monthName = currentDate.toLocaleString('pt-BR', { month: 'long' });
+            const monthCapitalized = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+            session.month = `${monthCapitalized} - ${currentDate.getFullYear()}`;
+
             session.fullDate = `${session.date}/${currentDate.getFullYear()}`;
 
             lastSessionDate = new Date(currentDate);
